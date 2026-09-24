@@ -1,23 +1,83 @@
 {
   "name": "nocta-agenda",
+  "productName": "Nocta",
+  "description": "Agenda de deberes y exámenes para 2º DAM",
+  "author": "Iván",
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
-  },
-  "dependencies": {
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "preview": "vite preview",
+    "build:app": "tsc -b && vite build --mode electron",
+    "app": "npm run build:app && electron .",
+    "dist": "npm run build:app && electron-builder --win"
   },
   "devDependencies": {
+    "@fontsource/inter": "^5.3.0",
+    "@fontsource/jetbrains-mono": "^5.3.0",
+    "@fontsource/space-grotesk": "^5.3.0",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
     "@vitejs/plugin-react": "^5.0.0",
+    "electron": "^37.10.3",
+    "electron-builder": "^26.15.3",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
     "typescript": "~5.8.3",
     "vite": "^7.0.0",
     "vite-plugin-pwa": "^1.0.0"
+  },
+  "build": {
+    "appId": "com.ivanng.nocta",
+    "productName": "Nocta",
+    "copyright": "Iván",
+    "directories": {
+      "output": "instaladores",
+      "buildResources": "build"
+    },
+    "files": [
+      "electron/**",
+      "dist-app/**",
+      "build/icon.png",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Nocta",
+      "installerLanguages": [
+        "es_ES"
+      ],
+      "language": "3082",
+      "artifactName": "Nocta-Setup-${version}.${ext}"
+    },
+    "portable": {
+      "artifactName": "Nocta-${version}-portable.${ext}"
+    },
+    "electronDist": "node_modules/electron/dist",
+    "asar": false
   }
 }

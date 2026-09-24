@@ -80,6 +80,9 @@ export const actions = {
   setUserName(userName: string) {
     set({ ...state, userName });
   },
+  replaceAll(next: State) {
+    set(next);
+  },
 };
 
 /** Fecha de hoy, que se actualiza sola al pasar la medianoche o al volver a la app. */

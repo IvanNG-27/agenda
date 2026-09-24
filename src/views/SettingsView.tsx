@@ -1,5 +1,7 @@
+import { useRef, useState, type ChangeEvent } from 'react';
 import type { State } from '../data/types';
 import { actions } from '../data/store';
+import { downloadBackup, parseBackup } from '../data/backup';
 import { PALETTE } from '../data/defaults';
 import { SectionHeader } from '../components/Common';
 import { Icon } from '../components/Icons';
@@ -67,7 +69,78 @@ export function SettingsView({ state, desktop }: Props) {
         </div>
       </section>
 
-      <p className="note">Tus datos se guardan solo en este dispositivo.</p>
+      <BackupSection state={state} />
     </main>
+  );
+}
+
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+function BackupSection({ state }: { state: State }) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [pending, setPending] = useState<State | null>(null);
+  const [message, setMessage] = useState('');
+
+  const onFile = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      setPending(parseBackup(await file.text()));
+      setMessage('');
+    } catch (err) {
+      setPending(null);
+      setMessage(err instanceof Error ? err.message : 'No se pudo leer el archivo.');
+    }
+  };
+
+  const confirm = () => {
+    if (!pending) return;
+    actions.replaceAll(pending);
+    setMessage(`Copia importada: ${plural(pending.tasks.length, 'tarea', 'tareas')} y ${plural(pending.exams.length, 'examen', 'exámenes')}.`);
+    setPending(null);
+  };
+
+  return (
+    <section>
+      <SectionHeader>Copia de seguridad</SectionHeader>
+      <div className="backup">
+        <p className="backup__text">
+          Tus datos se guardan solo en este dispositivo. Exporta una copia para guardarla o para pasarla a otro dispositivo.
+        </p>
+        {pending ? (
+          <div className="backup__confirm" role="alert">
+            <p className="backup__text backup__text--ink">
+              La copia tiene {plural(pending.tasks.length, 'tarea', 'tareas')} y {plural(pending.exams.length, 'examen', 'exámenes')}.
+              Si la importas, reemplaza lo que tienes ahora ({plural(state.tasks.length, 'tarea', 'tareas')} y{' '}
+              {plural(state.exams.length, 'examen', 'exámenes')}).
+            </p>
+            <div className="backup__actions">
+              <button type="button" className="btn" onClick={confirm}>
+                Reemplazar mis datos
+              </button>
+              <button type="button" className="btn btn--secondary" onClick={() => setPending(null)}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="backup__actions">
+            <button type="button" className="btn btn--secondary" onClick={() => downloadBackup(state)}>
+              Exportar copia
+            </button>
+            <button type="button" className="btn btn--secondary" onClick={() => fileRef.current?.click()}>
+              Importar copia
+            </button>
+            <input ref={fileRef} type="file" accept=".json,application/json" hidden onChange={onFile} />
+          </div>
+        )}
+        {message && (
+          <p className="backup__text" role="status">
+            {message}
+          </p>
+        )}
+      </div>
+    </section>
   );
 }

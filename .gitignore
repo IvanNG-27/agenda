@@ -3,3 +3,8 @@ dist
 dev-dist
 *.local
 .vite
+dist-app
+release
+dist-desktop
+*.tsbuildinfo
+instaladores
