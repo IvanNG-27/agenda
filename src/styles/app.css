@@ -612,8 +612,10 @@ ul {
   margin-bottom: var(--space-4);
 }
 
+/* Base "auto": si el título y los botones no caben en una línea, los botones bajan a la siguiente
+   en vez de montarse encima del título. */
 .head__text {
-  flex: 1;
+  flex: 1 1 auto;
   min-width: 0;
 }
 
