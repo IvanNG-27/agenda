@@ -4,10 +4,11 @@ import { VitePWA } from 'vite-plugin-pwa';
 import { fileURLToPath } from 'node:url';
 
 // `vite build --mode electron` genera la versión de escritorio: rutas relativas (file://) y sin service worker.
+// `vite build --mode pages` genera la web para GitHub Pages, que se sirve en /agenda/.
 export default defineConfig(({ mode }) => {
   const electron = mode === 'electron';
   return {
-    base: electron ? './' : '/',
+    base: electron ? './' : mode === 'pages' ? '/agenda/' : '/',
     resolve: electron
       ? { alias: { 'virtual:pwa-register': fileURLToPath(new URL('./src/pwa-stub.ts', import.meta.url)) } }
       : undefined,
@@ -34,7 +35,6 @@ export default defineConfig(({ mode }) => {
             theme_color: '#0d0e12',
             background_color: '#0d0e12',
             display: 'standalone',
-            start_url: '/',
             icons: [
               { src: 'icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
               { src: 'icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },

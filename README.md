@@ -10,6 +10,12 @@ npm run build    # compila a dist/
 npm run preview  # sirve dist/ en http://localhost:4173
 ```
 
+## Web en GitHub Pages
+
+Cada `git push` a `main` publica la web en https://ivanng-27.github.io/agenda/ (workflow `.github/workflows/pages.yml`).
+Desde ahí, en Chrome o Edge, "Instalar Nocta" la deja como app de escritorio; en el móvil, "Añadir a pantalla de inicio".
+Para probar la versión de Pages en local: `npm run build:pages`.
+
 ## App de escritorio (Windows)
 
 ```bash
