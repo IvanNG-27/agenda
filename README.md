@@ -16,6 +16,15 @@ Cada `git push` a `main` publica la web en https://ivanng-27.github.io/agenda/ (
 Desde ahí, en Chrome o Edge, "Instalar Nocta" la deja como app de escritorio; en el móvil, "Añadir a pantalla de inicio".
 Para probar la versión de Pages en local: `npm run build:pages`.
 
+## Sincronización (Firebase)
+
+Con sesión iniciada con Google (Ajustes → Sincronización), las tareas, exámenes y asignaturas se guardan en Firestore
+y se ven en todos los dispositivos. Funciona sin conexión: los cambios se suben al volver.
+
+- Configuración del proyecto: `src/sync/config.ts` (valores de la consola de Firebase; no son secretos).
+- Reglas de seguridad: `firestore.rules` (cada usuario solo accede a `users/{su uid}`). Hay que publicarlas en la consola.
+- Solo en la versión web: la app de escritorio no puede iniciar sesión con Google.
+
 ## App de escritorio (Windows)
 
 ```bash

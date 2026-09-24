@@ -45,15 +45,41 @@ const subscribe = (l: () => void) => {
 };
 
 export const useStore = () => useSyncExternalStore(subscribe, () => state);
+export const getState = () => state;
+
+/** Destino de los cambios en la nube (Firebase) mientras hay sesión iniciada. */
+export type Remote = {
+  putTask(t: Task): void;
+  removeTask(id: string): void;
+  putExam(e: Exam): void;
+  removeExam(id: string): void;
+  putSubject(s: Subject, order: number): void;
+  putProfile(p: { userName: string }): void;
+  replaceAll(prev: State, next: State): void;
+};
+
+let remote: Remote | null = null;
+export const setRemote = (r: Remote | null) => {
+  remote = r;
+};
+
+/** Aplica datos que llegan de la nube sin volver a enviarlos. */
+export function applyRemote(patch: Partial<Pick<State, 'userName' | 'subjects' | 'tasks' | 'exams'>>) {
+  set({ ...state, ...patch });
+}
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
 export const actions = {
   addTask(t: Omit<Task, 'id' | 'done'>) {
-    set({ ...state, tasks: [...state.tasks, { ...t, id: uid(), done: false }] });
+    const task: Task = { ...t, id: uid(), done: false };
+    set({ ...state, tasks: [...state.tasks, task] });
+    remote?.putTask(task);
   },
   updateTask(id: string, patch: Partial<Task>) {
     set({ ...state, tasks: state.tasks.map((t) => (t.id === id ? { ...t, ...patch } : t)) });
+    const task = state.tasks.find((t) => t.id === id);
+    if (task) remote?.putTask(task);
   },
   setDone(id: string, done: boolean) {
     actions.updateTask(id, { done, doneAt: done ? todayISO() : undefined });
@@ -64,24 +90,35 @@ export const actions = {
   },
   deleteTask(id: string) {
     set({ ...state, tasks: state.tasks.filter((t) => t.id !== id) });
+    remote?.removeTask(id);
   },
   addExam(e: Omit<Exam, 'id'>) {
-    set({ ...state, exams: [...state.exams, { ...e, id: uid() }] });
+    const exam: Exam = { ...e, id: uid() };
+    set({ ...state, exams: [...state.exams, exam] });
+    remote?.putExam(exam);
   },
   updateExam(id: string, patch: Partial<Exam>) {
     set({ ...state, exams: state.exams.map((e) => (e.id === id ? { ...e, ...patch } : e)) });
+    const exam = state.exams.find((e) => e.id === id);
+    if (exam) remote?.putExam(exam);
   },
   deleteExam(id: string) {
     set({ ...state, exams: state.exams.filter((e) => e.id !== id) });
+    remote?.removeExam(id);
   },
   updateSubject(id: string, patch: Partial<Subject>) {
     set({ ...state, subjects: state.subjects.map((s) => (s.id === id ? { ...s, ...patch } : s)) });
+    const i = state.subjects.findIndex((s) => s.id === id);
+    if (i >= 0) remote?.putSubject(state.subjects[i], i);
   },
   setUserName(userName: string) {
     set({ ...state, userName });
+    remote?.putProfile({ userName });
   },
   replaceAll(next: State) {
+    const prev = state;
     set(next);
+    remote?.replaceAll(prev, next);
   },
 };
 

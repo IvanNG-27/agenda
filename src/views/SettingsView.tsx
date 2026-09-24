@@ -7,6 +7,7 @@ import { SectionHeader } from '../components/Common';
 import { Icon } from '../components/Icons';
 import { PageHeader } from '../components/PageHeader';
 import { href } from '../ui';
+import { signIn, signOut, useSync, type SyncStatus } from '../sync';
 
 type Props = { state: State; desktop: boolean };
 
@@ -20,6 +21,8 @@ export function SettingsView({ state, desktop }: Props) {
         </a>
       )}
       <PageHeader kicker="2º DAM" title="Ajustes" />
+
+      <SyncSection />
 
       <section>
         <SectionHeader>Tu nombre</SectionHeader>
@@ -77,6 +80,7 @@ export function SettingsView({ state, desktop }: Props) {
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 function BackupSection({ state }: { state: State }) {
+  const sync = useSync();
   const fileRef = useRef<HTMLInputElement>(null);
   const [pending, setPending] = useState<State | null>(null);
   const [message, setMessage] = useState('');
@@ -106,7 +110,9 @@ function BackupSection({ state }: { state: State }) {
       <SectionHeader>Copia de seguridad</SectionHeader>
       <div className="backup">
         <p className="backup__text">
-          Tus datos se guardan solo en este dispositivo. Exporta una copia para guardarla o para pasarla a otro dispositivo.
+          {signedIn(sync)
+            ? 'Tus datos están en tu cuenta. Exporta una copia si quieres guardarlos también en un archivo.'
+            : 'Tus datos se guardan solo en este dispositivo. Exporta una copia para guardarla o para pasarla a otro dispositivo.'}
         </p>
         {pending ? (
           <div className="backup__confirm" role="alert">
@@ -138,6 +144,73 @@ function BackupSection({ state }: { state: State }) {
         {message && (
           <p className="backup__text" role="status">
             {message}
+          </p>
+        )}
+      </div>
+    </section>
+  );
+}
+
+const signedIn = (s: SyncStatus) => ['synced', 'pending', 'offline', 'starting'].includes(s.phase) && !!s.email;
+
+const STATUS_TEXT: Partial<Record<SyncStatus['phase'], string>> = {
+  starting: 'Conectando…',
+  synced: 'Todo sincronizado.',
+  pending: 'Guardando cambios…',
+  offline: 'Sin conexión. Lo que cambies se subirá al volver.',
+};
+
+function SyncSection() {
+  const sync = useSync();
+  if (sync.phase === 'unconfigured') return null;
+
+  let body;
+  if (sync.phase === 'desktop') {
+    body = (
+      <p className="backup__text">
+        La sincronización funciona en la versión web. Instálala desde el navegador para tener tus datos en el móvil y en el
+        portátil.
+      </p>
+    );
+  } else if (signedIn(sync)) {
+    body = (
+      <>
+        <p className="backup__text backup__text--ink">Conectado como {sync.email}</p>
+        <p className="backup__text" role="status">
+          <span className={`sync-dot sync-dot--${sync.phase}`} aria-hidden="true" />
+          {STATUS_TEXT[sync.phase]}
+        </p>
+        <div className="backup__actions">
+          <button type="button" className="btn btn--secondary" onClick={() => signOut()}>
+            Cerrar sesión
+          </button>
+        </div>
+      </>
+    );
+  } else {
+    body = (
+      <>
+        <p className="backup__text">
+          Inicia sesión con la misma cuenta de Google en el móvil y en el portátil y tus tareas estarán en los dos. Lo que ya
+          tienes apuntado aquí se conserva.
+        </p>
+        <div className="backup__actions">
+          <button type="button" className="btn" onClick={() => signIn()} disabled={sync.phase === 'signing-in' || sync.phase === 'starting'}>
+            {sync.phase === 'signing-in' ? 'Conectando…' : 'Iniciar sesión con Google'}
+          </button>
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <section>
+      <SectionHeader>Sincronización</SectionHeader>
+      <div className="backup">
+        {body}
+        {sync.error && (
+          <p className="backup__text backup__text--error" role="alert">
+            {sync.error}
           </p>
         )}
       </div>

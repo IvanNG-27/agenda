@@ -40,34 +40,9 @@ export function parseBackup(text: string): State {
   }
 
   const base = initialState();
-  const subjects: Subject[] = arr(data.subjects).flatMap((s) => {
-    const id = str(s.id, 60);
-    const name = str(s.name, 60);
-    if (!id || !name) return [];
-    const color = typeof s.color === 'string' && COLORS.has(s.color) ? s.color : PALETTE[0].token;
-    return [{ id, name, short: str(s.short, 12) ?? name.slice(0, 12), color }];
-  });
-
-  const tasks: Task[] = arr(data.tasks).flatMap((t) => {
-    const id = str(t.id, 60);
-    const title = str(t.title, 120);
-    const subjectId = str(t.subjectId, 60);
-    const dueDate = typeof t.dueDate === 'string' && ISO.test(t.dueDate) ? t.dueDate : undefined;
-    if (!id || !title || !subjectId || !dueDate) return [];
-    const done = t.done === true;
-    const doneAt = done && typeof t.doneAt === 'string' && ISO.test(t.doneAt) ? t.doneAt : undefined;
-    return [{ id, title, subjectId, dueDate, done, doneAt, notes: str(t.notes, 2000) }];
-  });
-
-  const exams: Exam[] = arr(data.exams).flatMap((e) => {
-    const id = str(e.id, 60);
-    const title = str(e.title, 120);
-    const subjectId = str(e.subjectId, 60);
-    const date = typeof e.date === 'string' && ISO.test(e.date) ? e.date : undefined;
-    if (!id || !title || !subjectId || !date) return [];
-    const prep = typeof e.prep === 'number' && Number.isFinite(e.prep) ? Math.min(100, Math.max(0, Math.round(e.prep))) : 0;
-    return [{ id, title, subjectId, date, time: str(e.time, 30), prep }];
-  });
+  const subjects = arr(data.subjects).flatMap((s) => cleanSubject(s) ?? []);
+  const tasks = arr(data.tasks).flatMap((t) => cleanTask(t) ?? []);
+  const exams = arr(data.exams).flatMap((e) => cleanExam(e) ?? []);
 
   return {
     version: 1,
@@ -76,4 +51,35 @@ export function parseBackup(text: string): State {
     tasks,
     exams,
   };
+}
+
+// Validación de cada elemento: se usa al importar copias y con los datos que llegan de Firebase.
+
+export function cleanSubject(s: Record<string, unknown>): Subject | null {
+  const id = str(s.id, 60);
+  const name = str(s.name, 60);
+  if (!id || !name) return null;
+  const color = typeof s.color === 'string' && COLORS.has(s.color) ? s.color : PALETTE[0].token;
+  return { id, name, short: str(s.short, 12) ?? name.slice(0, 12), color };
+}
+
+export function cleanTask(t: Record<string, unknown>): Task | null {
+  const id = str(t.id, 60);
+  const title = str(t.title, 120);
+  const subjectId = str(t.subjectId, 60);
+  const dueDate = typeof t.dueDate === 'string' && ISO.test(t.dueDate) ? t.dueDate : undefined;
+  if (!id || !title || !subjectId || !dueDate) return null;
+  const done = t.done === true;
+  const doneAt = done && typeof t.doneAt === 'string' && ISO.test(t.doneAt) ? t.doneAt : undefined;
+  return { id, title, subjectId, dueDate, done, doneAt, notes: str(t.notes, 2000) };
+}
+
+export function cleanExam(e: Record<string, unknown>): Exam | null {
+  const id = str(e.id, 60);
+  const title = str(e.title, 120);
+  const subjectId = str(e.subjectId, 60);
+  const date = typeof e.date === 'string' && ISO.test(e.date) ? e.date : undefined;
+  if (!id || !title || !subjectId || !date) return null;
+  const prep = typeof e.prep === 'number' && Number.isFinite(e.prep) ? Math.min(100, Math.max(0, Math.round(e.prep))) : 0;
+  return { id, title, subjectId, date, time: str(e.time, 30), prep };
 }

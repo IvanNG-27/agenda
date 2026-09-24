@@ -1427,6 +1427,28 @@ label.field .field__label {
   color: var(--ink);
 }
 
+.backup__text--error {
+  color: var(--exam);
+}
+
+.sync-dot {
+  display: inline-block;
+  width: var(--dot);
+  height: var(--dot);
+  margin-right: var(--space-2);
+  border-radius: 50%;
+  background: var(--ink-muted);
+  vertical-align: 1px;
+}
+
+.sync-dot--synced {
+  background: var(--accent);
+}
+
+.sync-dot--offline {
+  background: var(--exam);
+}
+
 .backup__confirm {
   display: flex;
   flex-direction: column;

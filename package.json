@@ -25,6 +25,7 @@
     "@vitejs/plugin-react": "^5.0.0",
     "electron": "^37.10.3",
     "electron-builder": "^26.15.3",
+    "firebase": "^12.19.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "typescript": "~5.8.3",

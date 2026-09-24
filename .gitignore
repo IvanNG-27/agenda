@@ -8,3 +8,4 @@ release
 dist-desktop
 *.tsbuildinfo
 instaladores
+*-debug.log
