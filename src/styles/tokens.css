@@ -1,0 +1,104 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@600&family=Space+Grotesk:wght@500;600;700&display=swap");
+
+/* Tokens de Nocta (especificación §2). Ningún color ni tamaño fuera de aquí. */
+:root {
+  color-scheme: dark;
+
+  /* 2.1 Colores */
+  --bg-000: #0d0e12;
+  --bg-100: #16181f;
+  --bg-200: #20232c;
+  --line: #2d313c;
+  --ink: #eef0f5;
+  --ink-muted: #9aa1b2;
+  --accent: #c8f25c;
+  --accent-ink: #0d0e12;
+  --exam: #ff8a5b;
+  --hot-track: rgba(13, 14, 18, 0.2);
+  --scrim: rgba(13, 14, 18, 0.72);
+
+  /* Paleta de asignaturas: colores claros de luminosidad similar (texto encima: accent-ink) */
+  --subj-azul: #7cc4ff;
+  --subj-turquesa: #5fe0c8;
+  --subj-violeta: #c9a7ff;
+  --subj-rosa: #f59ad3;
+  --subj-ambar: #ffc36b;
+  --subj-lavanda: #a9b4ff;
+  --subj-arena: #d9c2a0;
+  --subj-verde: #9be38b;
+  --subj-amarillo: #efe08a;
+
+  /* 2.2 Tipografía */
+  --font-display: "Space Grotesk", system-ui, sans-serif;
+  --font-sans: Inter, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  --t-display: 700 32px/36px var(--font-display);
+  --t-title: 600 20px/26px var(--font-display);
+  --t-body: 500 15px/22px var(--font-sans);
+  --t-label: 600 13px/18px var(--font-sans);
+  --t-caption: 500 12px/16px var(--font-sans);
+  --t-countdown: 600 40px/40px var(--font-mono);
+
+  --fs-11: 11px;
+  --fs-12: 12px;
+  --fs-13: 13px;
+  --fs-14: 14px;
+  --fs-15: 15px;
+  --fs-20: 20px;
+  --fs-22: 22px;
+  --fs-30: 30px;
+  --fs-32: 32px;
+  --tracking-section: 0.08em;
+  --tracking-tag: 0.06em;
+
+  /* 2.3 Espaciado, radios y bordes */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 22px;
+  --radius-pill: 999px;
+
+  --stroke: 1.75px;
+  --border: 1px;
+
+  /* Medidas de componentes (§3, §4) */
+  --chip-h: 24px;
+  --chip-px: 10px;
+  --dot: 8px;
+  --check: 22px;
+  --bar-w: 3px;
+  --btn-h: 40px;
+  --fab: 56px;
+  --avatar: 36px;
+  --icon-tab: 22px;
+  --icon-menu: 18px;
+  --sidebar-w: 232px;
+  --panel-w: 320px;
+  --search-w: 220px;
+  --exam-min: 220px;
+  --carousel-card: 200px;
+  --tile-h: 92px;
+  --day-w: 52px;
+  --mini-cell: 28px;
+  --node: 12px;
+  --prep-h: 6px;
+  --tabbar-h: 68px;
+  --sheet-w: 440px;
+}
+
+body {
+  margin: 0;
+  background: var(--bg-000);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
