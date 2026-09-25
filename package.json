@@ -4,7 +4,7 @@
   "description": "Agenda personal de deberes y exámenes",
   "author": "Iván",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.1.0",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
@@ -37,7 +37,7 @@
     "productName": "Nocta",
     "copyright": "Iván",
     "directories": {
-      "output": "instaladores",
+      "output": "instaladores/${version}",
       "buildResources": "build"
     },
     "files": [

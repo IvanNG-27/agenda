@@ -29,11 +29,21 @@ y se ven en todos los dispositivos. Funciona sin conexión: los cambios se suben
 
 ```bash
 npm run app    # abre la versión de escritorio (Electron) sin instalarla
-npm run dist   # genera los ejecutables en instaladores/
+npm run dist   # genera los ejecutables en instaladores/<versión>/
 ```
 
-- `instaladores/Nocta-Setup-1.0.0.exe`: instalador (acceso directo en el escritorio y en el menú Inicio).
-- `instaladores/Nocta-1.0.0-portable.exe`: se abre sin instalar.
+- `instaladores/<versión>/Nocta-Setup-<versión>.exe`: instalador (acceso directo en el escritorio y en el menú Inicio).
+- `instaladores/<versión>/Nocta-<versión>-portable.exe`: se abre sin instalar.
+
+### Versiones
+
+La versión sale de `"version"` en `package.json` y cada una se genera en su carpeta (`instaladores/1.0.0/`,
+`instaladores/1.1.0/`…), así que las anteriores se conservan.
+
+```bash
+npm version minor --no-git-tag-version   # 1.0.0 → 1.1.0 (patch: 1.0.1, major: 2.0.0)
+npm run dist                             # genera instaladores/1.1.0/
+```
 
 Los datos de la app de escritorio se guardan en `%APPDATA%\Nocta` y son independientes de los del navegador.
 Los ejecutables no están firmados: la primera vez Windows SmartScreen avisa ("Más información" → "Ejecutar de todas formas").
