@@ -80,7 +80,7 @@ export function start() {
   // siguen en el store y se juntan con los de la nube.
   const bootState = getState();
   getRedirectResult(auth)
-    .then((res) => res && merge(res.user.uid, bootState))
+    .then((res) => res && mergeOrSignOut(res.user.uid, bootState))
     .catch(onError);
 
   onAuthStateChanged(auth, (u) => {
@@ -122,7 +122,20 @@ export async function signOut() {
 async function signInWith(login: () => Promise<UserCredential>) {
   const local = getState();
   const cred = await login();
-  await merge(cred.user.uid, local);
+  await mergeOrSignOut(cred.user.uid, local);
+}
+
+async function mergeOrSignOut(uid: string, local: State) {
+  try {
+    await merge(uid, local);
+  } catch (err) {
+    // Si no se pudieron subir los datos de este dispositivo, se cierra la sesión para poder reintentarlo
+    // desde cero; si no, lo que solo estaba aquí no llegaría nunca a la cuenta.
+    stop();
+    user = null;
+    await firebaseSignOut(auth).catch(() => {});
+    throw err;
+  }
 }
 
 /**

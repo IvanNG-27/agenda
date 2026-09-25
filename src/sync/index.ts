@@ -72,11 +72,14 @@ export function messageFor(err: unknown): string {
     case 'auth/unauthorized-domain':
       return 'Este dominio no está autorizado en Firebase. Añádelo en Authentication → Configuración → Dominios autorizados.';
     case 'auth/operation-not-allowed':
-      return 'El inicio de sesión con Google no está activado en Firebase (Authentication → Método de acceso).';
+    case 'auth/configuration-not-found':
+      return 'El inicio de sesión con Google no está activado en Firebase (Authentication → Método de acceso → Google).';
+    case 'not-found':
+      return 'Falta crear la base de datos en Firebase (Firestore Database → Crear base de datos).';
     case 'auth/network-request-failed':
       return 'No hay conexión. Inténtalo cuando tengas internet.';
     case 'permission-denied':
-      return 'Firebase ha rechazado el acceso a los datos. Revisa las reglas de Firestore.';
+      return 'Firebase ha rechazado el acceso a los datos. Revisa que la base de datos Firestore esté creada y las reglas publicadas.';
     default:
       return code ? `No se pudo conectar con Firebase (${code}).` : 'No se pudo conectar con Firebase.';
   }
