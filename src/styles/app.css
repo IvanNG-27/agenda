@@ -1381,6 +1381,13 @@ label.field .field__label {
   gap: var(--space-2);
 }
 
+.app-version {
+  margin-top: var(--space-6);
+  font: var(--t-caption);
+  color: var(--ink-muted);
+  text-align: center;
+}
+
 .welcome {
   display: flex;
   flex-direction: column;

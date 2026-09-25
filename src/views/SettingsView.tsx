@@ -9,6 +9,7 @@ import { Icon } from '../components/Icons';
 import { PageHeader } from '../components/PageHeader';
 import { href } from '../ui';
 import { signIn, signOut, useSync, type SyncStatus } from '../sync';
+import { isDesktopApp } from '../sync/config';
 
 type Props = { state: State; desktop: boolean };
 
@@ -40,6 +41,10 @@ export function SettingsView({ state, desktop }: Props) {
       <SubjectsSection state={state} />
 
       <BackupSection state={state} />
+
+      <p className="app-version">
+        Nocta {__APP_VERSION__} · {isDesktopApp ? 'app de escritorio' : 'versión web'}
+      </p>
     </main>
   );
 }
