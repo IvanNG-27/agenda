@@ -28,9 +28,9 @@ export default defineConfig(({ mode }) => {
           registerType: 'autoUpdate',
           includeAssets: ['icon.svg'],
           manifest: {
-            name: 'Nocta · Agenda 2º DAM',
+            name: 'Nocta · Agenda',
             short_name: 'Nocta',
-            description: 'Deberes y exámenes de 2º DAM, sin ruido.',
+            description: 'Tus deberes y exámenes, sin ruido.',
             lang: 'es',
             theme_color: '#0d0e12',
             background_color: '#0d0e12',

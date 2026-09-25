@@ -47,7 +47,7 @@ export function parseBackup(text: string): State {
   return {
     version: 1,
     userName: typeof data.userName === 'string' ? data.userName.slice(0, 40) : base.userName,
-    subjects: subjects.length ? subjects : base.subjects,
+    subjects,
     tasks,
     exams,
   };

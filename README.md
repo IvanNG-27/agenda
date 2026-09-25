@@ -1,6 +1,6 @@
-# Nocta · Agenda 2º DAM
+# Nocta · Agenda
 
-Agenda oscura para deberes y exámenes de 2º DAM, basada en `../Bocetos/Nocta_especificacion_diseno.pdf`.
+Agenda oscura y personalizable para deberes y exámenes, basada en `../Bocetos/Nocta_especificacion_diseno.pdf`.
 React + TypeScript + Vite, instalable como PWA. Los datos se guardan en `localStorage` del navegador.
 
 ```bash

@@ -54,6 +54,7 @@ export type Remote = {
   putExam(e: Exam): void;
   removeExam(id: string): void;
   putSubject(s: Subject, order: number): void;
+  removeSubject(id: string): void;
   putProfile(p: { userName: string }): void;
   replaceAll(prev: State, next: State): void;
 };
@@ -110,6 +111,29 @@ export const actions = {
     set({ ...state, subjects: state.subjects.map((s) => (s.id === id ? { ...s, ...patch } : s)) });
     const i = state.subjects.findIndex((s) => s.id === id);
     if (i >= 0) remote?.putSubject(state.subjects[i], i);
+  },
+  addSubject(s: Omit<Subject, 'id'>) {
+    const subject: Subject = { ...s, id: uid() };
+    set({ ...state, subjects: [...state.subjects, subject] });
+    remote?.putSubject(subject, state.subjects.length - 1);
+  },
+  /** Elimina la asignatura junto con sus tareas y exámenes. */
+  deleteSubject(id: string) {
+    const tasks = state.tasks.filter((t) => t.subjectId === id);
+    const exams = state.exams.filter((e) => e.subjectId === id);
+    set({
+      ...state,
+      subjects: state.subjects.filter((s) => s.id !== id),
+      tasks: state.tasks.filter((t) => t.subjectId !== id),
+      exams: state.exams.filter((e) => e.subjectId !== id),
+    });
+    if (remote) {
+      remote.removeSubject(id);
+      tasks.forEach((t) => remote?.removeTask(t.id));
+      exams.forEach((e) => remote?.removeExam(e.id));
+      // Reescribe el orden para que siga siendo 0, 1, 2… en la nube
+      state.subjects.forEach((s, i) => remote?.putSubject(s, i));
+    }
   },
   setUserName(userName: string) {
     set({ ...state, userName });

@@ -206,7 +206,7 @@ function listen(u: User) {
       const list = docs
         .sort((a, b) => order(a) - order(b) || String(a.id).localeCompare(String(b.id)))
         .flatMap((d) => cleanSubject(d) ?? []);
-      if (list.length) applyRemote({ subjects: list });
+      applyRemote({ subjects: list });
     }),
     onSnapshot(
       base,
@@ -242,6 +242,7 @@ function makeRemote(base: DocumentReference): Remote {
     putExam: (e) => send(setDoc(ref('exams', e.id), e)),
     removeExam: (id) => send(deleteDoc(ref('exams', id))),
     putSubject: (s, order) => send(setDoc(ref('subjects', s.id), { ...s, order })),
+    removeSubject: (id) => send(deleteDoc(ref('subjects', id))),
     putProfile: (p) => send(setDoc(base, p, { merge: true })),
     replaceAll: (prev, next) => {
       const ops: BatchOp[] = [];

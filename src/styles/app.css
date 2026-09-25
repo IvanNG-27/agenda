@@ -1381,6 +1381,72 @@ label.field .field__label {
   gap: var(--space-2);
 }
 
+.welcome {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  padding: var(--space-6) var(--space-4);
+  border: var(--border) solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--bg-100);
+}
+
+.welcome__title {
+  font: var(--t-title);
+}
+
+.welcome__text {
+  font: var(--t-body);
+  font-weight: 400;
+  color: var(--ink-muted);
+  max-width: 460px;
+}
+
+.welcome__btn {
+  display: inline-flex;
+  align-items: center;
+  margin-top: var(--space-2);
+  text-decoration: none;
+}
+
+.inline-link {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.subjects__row--add {
+  color: var(--ink-muted);
+  font-weight: 600;
+}
+
+.subject-edit--new {
+  outline: 1px solid var(--line);
+  outline-offset: -1px;
+}
+
+.subject-edit__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.text-btn {
+  margin-left: auto;
+  flex: none;
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  font: var(--t-label);
+  color: var(--ink-muted);
+}
+
+.text-btn:hover {
+  color: var(--exam);
+}
+
 .swatches {
   display: flex;
   flex-wrap: wrap;

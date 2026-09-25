@@ -140,11 +140,21 @@ export function Editor({ req, state, today, desktop, onClose }: Props) {
 
           <fieldset className="field">
             <legend className="field__label">Asignatura</legend>
-            <div className="chips">
-              {state.subjects.map((s) => (
-                <SubjectChip key={s.id} subject={s} solid={s.id === subjectId} onClick={() => setSubjectId(s.id)} />
-              ))}
-            </div>
+            {state.subjects.length ? (
+              <div className="chips">
+                {state.subjects.map((s) => (
+                  <SubjectChip key={s.id} subject={s} solid={s.id === subjectId} onClick={() => setSubjectId(s.id)} />
+                ))}
+              </div>
+            ) : (
+              <p className="backup__text">
+                Aún no tienes asignaturas.{' '}
+                <a className="inline-link" href="#/ajustes" onClick={onClose}>
+                  Añádelas en Ajustes
+                </a>{' '}
+                y vuelve para apuntar esto.
+              </p>
+            )}
           </fieldset>
 
           <div className="form__row">

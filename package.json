@@ -1,7 +1,7 @@
 {
   "name": "nocta-agenda",
   "productName": "Nocta",
-  "description": "Agenda de deberes y exámenes para 2º DAM",
+  "description": "Agenda personal de deberes y exámenes",
   "author": "Iván",
   "private": true,
   "version": "1.0.0",

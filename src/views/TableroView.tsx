@@ -4,7 +4,7 @@ import { actions } from '../data/store';
 import { ExamCard } from '../components/ExamCard';
 import { TaskItem } from '../components/TaskItem';
 import { SubjectChip } from '../components/SubjectChip';
-import { Empty, SectionHeader } from '../components/Common';
+import { Empty, SectionHeader, Welcome } from '../components/Common';
 import { PageHeader } from '../components/PageHeader';
 import { addDays, day, DOW_SHORT, isoWeek, weekday } from '../lib/dates';
 import { byDue, colorVar, subjectMap, upcomingExams } from '../lib/rules';
@@ -41,7 +41,7 @@ export function TableroView({ state, today, desktop }: Props) {
 
     return (
       <main className="page">
-        <PageHeader kicker={`Hola, ${state.userName || 'tú'}`} title="Tablero">
+        <PageHeader kicker={state.userName.trim() ? `Hola, ${state.userName.trim()}` : 'Hola'} title="Tablero">
           <a className="avatar" href={href({ name: 'ajustes' })} aria-label="Ajustes">
             {initials(state.userName)}
           </a>
@@ -76,6 +76,7 @@ export function TableroView({ state, today, desktop }: Props) {
 
         <section>
           <SectionHeader>Deberes por asignatura</SectionHeader>
+          {state.subjects.length === 0 && <Welcome />}
           <div className="tiles">
             {state.subjects.map((s) => {
               const { count, sub } = summary(s.id);

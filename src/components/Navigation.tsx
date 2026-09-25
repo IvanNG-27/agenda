@@ -45,6 +45,13 @@ export function Sidebar({ route, state }: { route: Route; state: State }) {
       </ul>
       <h2 className="section">Asignaturas</h2>
       <ul className="subjects">
+        {state.subjects.length === 0 && (
+          <li>
+            <a className="subjects__row subjects__row--add" href={href({ name: 'ajustes' })}>
+              + Añadir asignaturas
+            </a>
+          </li>
+        )}
         {state.subjects.map((s) => {
           const current = route.name === 'asignatura' && route.id === s.id;
           return (

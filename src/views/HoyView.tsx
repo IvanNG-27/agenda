@@ -1,7 +1,7 @@
 import type { State, Task } from '../data/types';
 import { ExamCard } from '../components/ExamCard';
 import { TaskItem } from '../components/TaskItem';
-import { Empty, List, SectionHeader } from '../components/Common';
+import { Empty, List, SectionHeader, Welcome } from '../components/Common';
 import { MiniCalendar } from '../components/MiniCalendar';
 import { DesktopActions, PageHeader } from '../components/PageHeader';
 import { longDate } from '../lib/dates';
@@ -46,7 +46,7 @@ export function HoyView({ state, today, desktop }: Props) {
         {section('Mañana', g.tomorrow, { count: true })}
         {section('Esta semana', g.week)}
         {section('Más adelante', g.later)}
-        {nothing && <Empty />}
+        {state.subjects.length === 0 ? <Welcome /> : nothing && <Empty />}
       </main>
     );
   }
@@ -57,7 +57,9 @@ export function HoyView({ state, today, desktop }: Props) {
         <PageHeader kicker={longDate(today)} title="Hoy">
           <DesktopActions state={state} today={today} />
         </PageHeader>
-        {nothing ? (
+        {state.subjects.length === 0 ? (
+          <Welcome />
+        ) : nothing ? (
           <Empty />
         ) : (
           <div className="columns">
