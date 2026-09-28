@@ -46,7 +46,22 @@ npm run dist                             # genera instaladores/1.1.0/
 ```
 
 Los datos de la app de escritorio se guardan en `%APPDATA%\Nocta` y son independientes de los del navegador.
-Los ejecutables no están firmados: la primera vez Windows SmartScreen avisa ("Más información" → "Ejecutar de todas formas").
+
+### ⚠️ Windows 11: Smart App Control
+
+Los ejecutables no están firmados digitalmente. Si en tu PC está activado **Smart App Control**, Windows los bloquea
+sin opción de abrirlos igualmente, y no admite excepciones por programa. Para usar la app de escritorio hay que desactivarlo:
+
+1. Abre **Seguridad de Windows** → **Control de aplicaciones y navegador**.
+2. Entra en **Configuración de Smart App Control** y elige **Desactivado**.
+
+> **Importante:** en la mayoría de versiones de Windows 11, una vez desactivado no se puede volver a activar sin
+> reinstalar o restablecer Windows. El antivirus (Microsoft Defender) sigue protegiendo el equipo igual.
+
+Si prefieres no desactivarlo, usa la versión web (https://ivanng-27.github.io/agenda/) e instálala desde Chrome o Edge
+con "Instalar Nocta": funciona igual y no la bloquea.
+
+Sin Smart App Control, la primera vez puede aparecer el aviso azul de SmartScreen: "Más información" → "Ejecutar de todas formas".
 
 ## Pantallas
 
