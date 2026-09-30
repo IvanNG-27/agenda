@@ -30,8 +30,8 @@ async function latestRelease(): Promise<Update | null> {
   const r = (await res.json()) as { tag_name?: string; html_url?: string; assets?: { name: string }[] };
   const version = (r.tag_name ?? '').replace(/^v/, '');
   if (!/^\d+\.\d+\.\d+$/.test(version) || compareVersions(version, __APP_VERSION__) <= 0) return null;
-  // Una Release sin .exe (aún subiéndose, o mal hecha) no sirve para actualizar
-  if (!r.assets?.some((a) => a.name.toLowerCase().endsWith('.exe'))) return null;
+  // Una Release sin la app (.zip o .exe; aún subiéndose, o mal hecha) no sirve para actualizar
+  if (!r.assets?.some((a) => /\.(zip|exe)$/i.test(a.name))) return null;
   return { version, url: r.html_url ?? `https://github.com/${REPO}/releases/latest` };
 }
 

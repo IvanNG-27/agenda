@@ -1,0 +1,2 @@
+# Los scripts .cmd de Windows necesitan saltos de línea CRLF
+*.cmd text eol=crlf

@@ -29,11 +29,15 @@ y se ven en todos los dispositivos. Funciona sin conexión: los cambios se suben
 
 ```bash
 npm run app    # abre la versión de escritorio (Electron) sin instalarla
-npm run dist   # genera los ejecutables en instaladores/<versión>/
+npm run dist   # genera instaladores/<versión>/Nocta-<versión>-windows.zip
 ```
 
-- `instaladores/<versión>/Nocta-Setup-<versión>.exe`: instalador (acceso directo en el escritorio y en el menú Inicio).
-- `instaladores/<versión>/Nocta-<versión>-portable.exe`: se abre sin instalar.
+El `.zip` lleva una carpeta `Nocta` con la app (`Nocta.exe`) y `Desinstalar Nocta.cmd` (sale de `build/`). El
+desinstalador quita los accesos directos que apunten a la carpeta, la borra y, si se le pide, borra también los datos.
+
+No se genera instalador NSIS: en un PC con Smart App Control, electron-builder se queda a medias al crear el
+desinstalador. En su lugar, electron-builder deja la app en `win-unpacked` y `scripts/zip.cjs` la comprime con el
+`tar` de Windows.
 
 ### Versiones
 
@@ -47,15 +51,14 @@ npm run dist                             # genera instaladores/1.1.0/
 
 #### Aviso de versión nueva (app de escritorio)
 
-La web se actualiza sola; el `.exe` no. Al arrancar (y cada 6 horas) la app de escritorio consulta la última Release
+La web se actualiza sola; la app de escritorio no. Al arrancar (y cada 6 horas) la app de escritorio consulta la última Release
 de GitHub y, si es más nueva que la suya, avisa con un enlace para descargarla (`src/updates.ts`). Para que funcione:
 
 - La etiqueta de la Release tiene que ser la versión con `v` delante: `v1.2.0`.
-- Tiene que llevar adjuntos los `.exe` (`Nocta-Setup-<versión>.exe` y `Nocta-<versión>-portable.exe`); sin ellos no avisa.
+- Tiene que llevar adjunto `Nocta-<versión>-windows.zip`; sin él no avisa.
 - No debe estar marcada como borrador ni como pre-release.
 
-Quien actualiza descarga el instalador nuevo y lo ejecuta encima del anterior (o sustituye el portable):
-sus datos siguen en `%APPDATA%\Nocta`.
+Quien actualiza borra la carpeta Nocta antigua y extrae la nueva; sus datos siguen en `%APPDATA%\Nocta`.
 
 #### Novedades
 
@@ -68,8 +71,8 @@ Los datos de la app de escritorio se guardan en `%APPDATA%\Nocta` y son independ
 
 ### ⚠️ Windows 11: Smart App Control
 
-Los ejecutables no están firmados digitalmente. Si en tu PC está activado **Smart App Control**, Windows los bloquea
-sin opción de abrirlos igualmente, y no admite excepciones por programa. Para usar la app de escritorio hay que desactivarlo:
+`Nocta.exe` no está firmado digitalmente. Si en tu PC está activado **Smart App Control**, Windows lo bloquea
+sin opción de abrirlo igualmente, y no admite excepciones por programa. Para usar la app de escritorio hay que desactivarlo:
 
 1. Abre **Seguridad de Windows** → **Control de aplicaciones y navegador**.
 2. Entra en **Configuración de Smart App Control** y elige **Desactivado**.
@@ -78,7 +81,7 @@ sin opción de abrirlos igualmente, y no admite excepciones por programa. Para u
 > reinstalar o restablecer Windows. El antivirus (Microsoft Defender) sigue protegiendo el equipo igual.
 
 Si prefieres no desactivarlo, usa la versión web (https://ivanng-27.github.io/agenda/) e instálala desde Chrome o Edge
-con "Instalar Nocta": funciona igual y no la bloquea.
+con el icono de instalar de la barra de direcciones: funciona igual y no la bloquea.
 
 Sin Smart App Control, la primera vez puede aparecer el aviso azul de SmartScreen: "Más información" → "Ejecutar de todas formas".
 

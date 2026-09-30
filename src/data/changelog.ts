@@ -13,6 +13,7 @@ export const CHANGELOG: Release[] = [
       'Cuando Nocta se actualice, te enseñará qué ha cambiado, como ahora.',
       'Puedes volver a ver las novedades en Ajustes, abajo del todo.',
       'App de escritorio: te avisa cuando hay una versión nueva para descargar.',
+      'App de escritorio: ahora se descarga en un .zip que incluye un desinstalador.',
     ],
   },
   {

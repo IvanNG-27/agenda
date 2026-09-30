@@ -14,7 +14,7 @@
     "build:pages": "tsc -b && vite build --mode pages",
     "build:app": "tsc -b && vite build --mode electron",
     "app": "npm run build:app && electron .",
-    "dist": "npm run build:app && electron-builder --win"
+    "dist": "npm run build:app && electron-builder --win && node scripts/zip.cjs"
   },
   "devDependencies": {
     "@fontsource/inter": "^5.3.0",
@@ -46,38 +46,22 @@
       "build/icon.png",
       "package.json"
     ],
+    "extraFiles": [
+      {
+        "from": "build/Desinstalar Nocta.cmd",
+        "to": "Desinstalar Nocta.cmd"
+      }
+    ],
     "win": {
       "target": [
         {
-          "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        },
-        {
-          "target": "portable",
+          "target": "dir",
           "arch": [
             "x64"
           ]
         }
       ],
       "icon": "build/icon.png"
-    },
-    "nsis": {
-      "oneClick": false,
-      "perMachine": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "Nocta",
-      "installerLanguages": [
-        "es_ES"
-      ],
-      "language": "3082",
-      "artifactName": "Nocta-Setup-${version}.${ext}"
-    },
-    "portable": {
-      "artifactName": "Nocta-${version}-portable.${ext}"
     },
     "electronDist": "node_modules/electron/dist",
     "asar": false
