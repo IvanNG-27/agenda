@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { useStore, useToday } from './data/store';
 import { Sidebar, TabBar } from './components/Navigation';
 import { Editor } from './components/Editor';
+import { markReleasesSeen, pendingReleases, WhatsNew } from './components/WhatsNew';
 import { HoyView } from './views/HoyView';
 import { SemanaView } from './views/SemanaView';
 import { CalendarView } from './views/CalendarView';
@@ -17,9 +18,14 @@ export default function App() {
   const route = useRoute();
   const desktop = useMediaQuery('(min-width: 900px)');
   const [editor, setEditor] = useState<EditorRequest | null>(null);
+  const [news, setNews] = useState(() => pendingReleases(state));
 
   const openEditor = useCallback((req: EditorRequest) => setEditor(req), []);
   const closeEditor = useCallback(() => setEditor(null), []);
+  const closeNews = useCallback(() => {
+    markReleasesSeen();
+    setNews([]);
+  }, []);
   const ui = useMemo(() => ({ openEditor, isDesktop: desktop }), [openEditor, desktop]);
 
   const props = { state, today, desktop };
@@ -89,6 +95,9 @@ export default function App() {
           desktop={desktop}
           onClose={closeEditor}
         />
+      )}
+      {news.length > 0 && !editor && (
+        <WhatsNew title="Nocta se ha actualizado" releases={news} onClose={closeNews} />
       )}
     </UIContext.Provider>
   );

@@ -1,4 +1,4 @@
-import { useRef, useState, type ChangeEvent, type FormEvent } from 'react';
+import { useCallback, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import type { State } from '../data/types';
 import { actions } from '../data/store';
 import { downloadBackup, parseBackup } from '../data/backup';
@@ -10,6 +10,8 @@ import { PageHeader } from '../components/PageHeader';
 import { href } from '../ui';
 import { signIn, signOut, useSync, type SyncStatus } from '../sync';
 import { isDesktopApp } from '../sync/config';
+import { releasesBetween } from '../data/changelog';
+import { WhatsNew } from '../components/WhatsNew';
 
 type Props = { state: State; desktop: boolean };
 
@@ -42,9 +44,7 @@ export function SettingsView({ state, desktop }: Props) {
 
       <BackupSection state={state} />
 
-      <p className="app-version">
-        Nocta {__APP_VERSION__} · {isDesktopApp ? 'app de escritorio' : 'versión web'}
-      </p>
+      <AppVersion />
     </main>
   );
 }
@@ -319,5 +319,21 @@ function SyncSection() {
         )}
       </div>
     </section>
+  );
+}
+
+function AppVersion() {
+  const [open, setOpen] = useState(false);
+  const close = useCallback(() => setOpen(false), []);
+  return (
+    <>
+      <p className="app-version">
+        Nocta {__APP_VERSION__} · {isDesktopApp ? 'app de escritorio' : 'versión web'} ·{' '}
+        <button type="button" className="app-version__link" onClick={() => setOpen(true)}>
+          Novedades
+        </button>
+      </p>
+      {open && <WhatsNew title="Novedades" releases={releasesBetween(null, __APP_VERSION__)} onClose={close} />}
+    </>
   );
 }

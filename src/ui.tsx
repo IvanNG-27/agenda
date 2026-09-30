@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState, type RefObject } from 'react';
 
 export type Route =
   | { name: 'hoy' }
@@ -74,4 +74,34 @@ export function useMediaQuery(q: string): boolean {
     return () => m.removeEventListener('change', on);
   }, [q]);
   return match;
+}
+
+/** Ventana modal: Escape la cierra, Tab no sale de ella, la página de detrás no se desplaza
+ *  y, al cerrarla, el foco vuelve a donde estaba. */
+export function useModal(ref: RefObject<HTMLElement | null>, onClose: () => void) {
+  useEffect(() => {
+    const prev = document.activeElement as HTMLElement | null;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+      if (e.key === 'Tab' && ref.current) {
+        const f = ref.current.querySelectorAll<HTMLElement>('button, input, textarea, [tabindex]');
+        const first = f[0];
+        const last = f[f.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = '';
+      prev?.focus?.();
+    };
+  }, [ref, onClose]);
 }

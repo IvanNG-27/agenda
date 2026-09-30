@@ -3,14 +3,21 @@ import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import { fileURLToPath } from 'node:url';
 import { readFileSync } from 'node:fs';
+import { CHANGELOG } from './src/data/changelog';
 
 // La versión de la app sale de package.json (npm version patch/minor/major).
 const { version } = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as { version: string };
 
 // `vite build --mode electron` genera la versión de escritorio: rutas relativas (file://) y sin service worker.
 // `vite build --mode pages` genera la web para GitHub Pages, que se sirve en /agenda/.
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ mode, command }) => {
   const electron = mode === 'electron';
+  // Cada versión que se publica tiene que contar sus novedades (se enseñan al usuario al actualizar).
+  if (command === 'build' && !CHANGELOG.some((r) => r.version === version)) {
+    throw new Error(
+      `Falta la entrada de la versión ${version} en src/data/changelog.ts: añade qué cambia para el usuario antes de compilar.`,
+    );
+  }
   return {
     base: electron ? './' : mode === 'pages' ? '/agenda/' : '/',
     define: { __APP_VERSION__: JSON.stringify(version) },

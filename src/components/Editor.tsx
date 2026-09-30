@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { State } from '../data/types';
 import { actions } from '../data/store';
 import { addDays } from '../lib/dates';
-import type { EditorRequest } from '../ui';
+import { useModal, type EditorRequest } from '../ui';
 import { SubjectChip } from './SubjectChip';
 import { Icon } from './Icons';
 
@@ -33,32 +33,10 @@ export function Editor({ req, state, today, desktop, onClose }: Props) {
   const titleRef = useRef<HTMLInputElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
 
+  useModal(dialogRef, onClose);
   useEffect(() => {
-    const prev = document.activeElement as HTMLElement | null;
     if (!editing) titleRef.current?.focus();
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-      if (e.key === 'Tab' && dialogRef.current) {
-        const f = dialogRef.current.querySelectorAll<HTMLElement>('button, input, textarea, [tabindex]');
-        const first = f[0];
-        const last = f[f.length - 1];
-        if (e.shiftKey && document.activeElement === first) {
-          e.preventDefault();
-          last.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
-          e.preventDefault();
-          first.focus();
-        }
-      }
-    };
-    document.addEventListener('keydown', onKey);
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.removeEventListener('keydown', onKey);
-      document.body.style.overflow = '';
-      prev?.focus?.();
-    };
-  }, [editing, onClose]);
+  }, [editing]);
 
   const valid = title.trim() !== '' && subjectId !== '' && /^\d{4}-\d{2}-\d{2}$/.test(date);
 

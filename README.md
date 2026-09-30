@@ -45,6 +45,13 @@ npm version minor --no-git-tag-version   # 1.0.0 → 1.1.0 (patch: 1.0.1, major:
 npm run dist                             # genera instaladores/1.1.0/
 ```
 
+#### Novedades
+
+Al abrir la app después de una actualización, se enseña qué ha cambiado desde la última versión que vio ese dispositivo
+(y se pueden volver a ver en Ajustes → Novedades). Los textos están en `src/data/changelog.ts`: cada vez que subas
+la versión, añade arriba su entrada contando los cambios como los notaría quien usa la app.
+Si falta la entrada de la versión de `package.json`, `npm run build` y `npm run dist` fallan y te lo recuerdan.
+
 Los datos de la app de escritorio se guardan en `%APPDATA%\Nocta` y son independientes de los del navegador.
 
 ### ⚠️ Windows 11: Smart App Control
