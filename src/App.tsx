@@ -3,6 +3,7 @@ import { useStore, useToday } from './data/store';
 import { Sidebar, TabBar } from './components/Navigation';
 import { Editor } from './components/Editor';
 import { markReleasesSeen, pendingReleases, WhatsNew } from './components/WhatsNew';
+import { UpdateNotice } from './components/UpdateNotice';
 import { HoyView } from './views/HoyView';
 import { SemanaView } from './views/SemanaView';
 import { CalendarView } from './views/CalendarView';
@@ -96,6 +97,7 @@ export default function App() {
           onClose={closeEditor}
         />
       )}
+      <UpdateNotice />
       {news.length > 0 && !editor && (
         <WhatsNew title="Nocta se ha actualizado" releases={news} onClose={closeNews} />
       )}

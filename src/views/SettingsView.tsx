@@ -12,6 +12,7 @@ import { signIn, signOut, useSync, type SyncStatus } from '../sync';
 import { isDesktopApp } from '../sync/config';
 import { releasesBetween } from '../data/changelog';
 import { WhatsNew } from '../components/WhatsNew';
+import { useUpdate } from '../updates';
 
 type Props = { state: State; desktop: boolean };
 
@@ -324,6 +325,7 @@ function SyncSection() {
 
 function AppVersion() {
   const [open, setOpen] = useState(false);
+  const update = useUpdate();
   const close = useCallback(() => setOpen(false), []);
   return (
     <>
@@ -333,6 +335,14 @@ function AppVersion() {
           Novedades
         </button>
       </p>
+      {update && (
+        <p className="app-version app-version--update">
+          Hay una versión nueva: Nocta {update.version} ·{' '}
+          <a className="app-version__link" href={update.url} target="_blank" rel="noreferrer">
+            Descargar
+          </a>
+        </p>
+      )}
       {open && <WhatsNew title="Novedades" releases={releasesBetween(null, __APP_VERSION__)} onClose={close} />}
     </>
   );

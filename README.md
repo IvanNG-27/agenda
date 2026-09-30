@@ -45,6 +45,18 @@ npm version minor --no-git-tag-version   # 1.0.0 → 1.1.0 (patch: 1.0.1, major:
 npm run dist                             # genera instaladores/1.1.0/
 ```
 
+#### Aviso de versión nueva (app de escritorio)
+
+La web se actualiza sola; el `.exe` no. Al arrancar (y cada 6 horas) la app de escritorio consulta la última Release
+de GitHub y, si es más nueva que la suya, avisa con un enlace para descargarla (`src/updates.ts`). Para que funcione:
+
+- La etiqueta de la Release tiene que ser la versión con `v` delante: `v1.2.0`.
+- Tiene que llevar adjuntos los `.exe` (`Nocta-Setup-<versión>.exe` y `Nocta-<versión>-portable.exe`); sin ellos no avisa.
+- No debe estar marcada como borrador ni como pre-release.
+
+Quien actualiza descarga el instalador nuevo y lo ejecuta encima del anterior (o sustituye el portable):
+sus datos siguen en `%APPDATA%\Nocta`.
+
 #### Novedades
 
 Al abrir la app después de una actualización, se enseña qué ha cambiado desde la última versión que vio ese dispositivo

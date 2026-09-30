@@ -1398,6 +1398,64 @@ label.field .field__label {
   text-underline-offset: 2px;
 }
 
+.app-version--update {
+  margin-top: var(--space-2);
+  color: var(--ink);
+}
+
+/* ---------- Versión nueva (app de escritorio) ---------- */
+
+.update {
+  position: fixed;
+  z-index: 40;
+  right: var(--space-6);
+  bottom: var(--space-6);
+  width: min(360px, calc(100% - var(--space-8)));
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: var(--border) solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--bg-100);
+}
+
+/* En ventanas estrechas, arriba: abajo están la barra de pestañas y el botón + */
+@media (max-width: 899px) {
+  .update {
+    top: calc(var(--space-3) + env(safe-area-inset-top));
+    bottom: auto;
+    left: var(--space-3);
+    right: var(--space-3);
+    width: auto;
+  }
+}
+
+.update__text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font: var(--t-caption);
+  color: var(--ink-muted);
+}
+
+.update__title {
+  font: var(--t-label);
+  color: var(--ink);
+}
+
+.update__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.update__btn {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
 /* ---------- Novedades ---------- */
 
 .release {

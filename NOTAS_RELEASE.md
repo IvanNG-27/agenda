@@ -8,6 +8,10 @@
 Tus datos se guardan en tu PC (`%APPDATA%\Nocta`) y se conservan al actualizar o apagar el equipo.
 Para pasarlos a otro dispositivo usa **Ajustes → Exportar / Importar**.
 
+**¿Ya tenías Nocta?** Descarga el instalador nuevo y ejecútalo: se instala encima de la versión anterior y
+conserva tus datos. Si usas el portable, sustituye el archivo antiguo por el nuevo.
+Desde la 1.2.0, la app te avisa sola cuando hay una versión nueva.
+
 ### ⚠️ Antes de instalar en Windows 11: Smart App Control
 
 Los ejecutables **no están firmados digitalmente**. Si tienes activado **Smart App Control**, Windows los bloqueará
