@@ -5,6 +5,7 @@
 //   users/{uid}/subjects/{id}   → Subject + order
 //   users/{uid}/tasks/{id}      → Task
 //   users/{uid}/exams/{id}      → Exam
+//   users/{uid}/events/{id}     → AgendaEvent
 //
 // Cada cambio local se aplica al momento en el store y además se escribe en Firestore. Firestore guarda
 // una copia en el dispositivo (IndexedDB), así que sin conexión los cambios esperan y se suben al volver.
@@ -42,7 +43,7 @@ import {
   type SnapshotMetadata,
 } from 'firebase/firestore';
 import { applyRemote, getState, setRemote, type Remote } from '../data/store';
-import { cleanExam, cleanSubject, cleanTask } from '../data/backup';
+import { cleanEvent, cleanExam, cleanSubject, cleanTask } from '../data/backup';
 import type { State } from '../data/types';
 import { firebaseConfig, useEmulator } from './config';
 import { getSyncStatus, messageFor, setSyncStatus } from './index';
@@ -144,9 +145,10 @@ async function mergeOrSignOut(uid: string, local: State) {
  */
 async function merge(uid: string, local: State) {
   const base = doc(db, 'users', uid);
-  const [tasks, exams, subjects, profile] = await Promise.all([
+  const [tasks, exams, events, subjects, profile] = await Promise.all([
     getDocsFromServer(collection(base, 'tasks')),
     getDocsFromServer(collection(base, 'exams')),
+    getDocsFromServer(collection(base, 'events')),
     getDocsFromServer(collection(base, 'subjects')),
     getDocFromServer(base),
   ]);
@@ -157,6 +159,8 @@ async function merge(uid: string, local: State) {
   for (const t of local.tasks) if (!remoteTasks.has(t.id)) writes.push([doc(base, 'tasks', t.id), t]);
   const remoteExams = ids(exams);
   for (const e of local.exams) if (!remoteExams.has(e.id)) writes.push([doc(base, 'exams', e.id), e]);
+  const remoteEvents = ids(events);
+  for (const e of local.events) if (!remoteEvents.has(e.id)) writes.push([doc(base, 'events', e.id), e]);
   const remoteSubjects = ids(subjects);
   local.subjects.forEach((s, order) => {
     if (!remoteSubjects.has(s.id)) writes.push([doc(base, 'subjects', s.id), { ...s, order }]);
@@ -182,7 +186,7 @@ function listen(u: User) {
   setRemote(makeRemote(base));
   setSyncStatus({ phase: 'starting', email: u.email ?? undefined });
 
-  const watch = (name: 'tasks' | 'exams' | 'subjects', apply: (docs: Record<string, unknown>[]) => void) =>
+  const watch = (name: 'tasks' | 'exams' | 'events' | 'subjects', apply: (docs: Record<string, unknown>[]) => void) =>
     onSnapshot(
       collection(base, name),
       { includeMetadataChanges: true },
@@ -202,6 +206,7 @@ function listen(u: User) {
   unsubs.push(
     watch('tasks', (docs) => applyRemote({ tasks: docs.flatMap((d) => cleanTask(d) ?? []) })),
     watch('exams', (docs) => applyRemote({ exams: docs.flatMap((d) => cleanExam(d) ?? []) })),
+    watch('events', (docs) => applyRemote({ events: docs.flatMap((d) => cleanEvent(d) ?? []) })),
     watch('subjects', (docs) => {
       const list = docs
         .sort((a, b) => order(a) - order(b) || String(a.id).localeCompare(String(b.id)))
@@ -241,6 +246,8 @@ function makeRemote(base: DocumentReference): Remote {
     removeTask: (id) => send(deleteDoc(ref('tasks', id))),
     putExam: (e) => send(setDoc(ref('exams', e.id), e)),
     removeExam: (id) => send(deleteDoc(ref('exams', id))),
+    putEvent: (e) => send(setDoc(ref('events', e.id), e)),
+    removeEvent: (id) => send(deleteDoc(ref('events', id))),
     putSubject: (s, order) => send(setDoc(ref('subjects', s.id), { ...s, order })),
     removeSubject: (id) => send(deleteDoc(ref('subjects', id))),
     putProfile: (p) => send(setDoc(base, p, { merge: true })),
@@ -249,12 +256,15 @@ function makeRemote(base: DocumentReference): Remote {
       const keep = (list: { id: string }[]) => new Set(list.map((x) => x.id));
       const nextTasks = keep(next.tasks);
       const nextExams = keep(next.exams);
+      const nextEvents = keep(next.events);
       const nextSubjects = keep(next.subjects);
       for (const t of prev.tasks) if (!nextTasks.has(t.id)) ops.push((b) => b.delete(ref('tasks', t.id)));
       for (const e of prev.exams) if (!nextExams.has(e.id)) ops.push((b) => b.delete(ref('exams', e.id)));
+      for (const e of prev.events) if (!nextEvents.has(e.id)) ops.push((b) => b.delete(ref('events', e.id)));
       for (const s of prev.subjects) if (!nextSubjects.has(s.id)) ops.push((b) => b.delete(ref('subjects', s.id)));
       for (const t of next.tasks) ops.push((b) => b.set(ref('tasks', t.id), t));
       for (const e of next.exams) ops.push((b) => b.set(ref('exams', e.id), e));
+      for (const e of next.events) ops.push((b) => b.set(ref('events', e.id), e));
       next.subjects.forEach((s, order) => ops.push((b) => b.set(ref('subjects', s.id), { ...s, order })));
       ops.push((b) => b.set(base, { userName: next.userName }, { merge: true }));
       send(commit(ops));
@@ -270,7 +280,7 @@ function updateStatus() {
   let phase: 'synced' | 'pending' | 'offline' | 'starting';
   if (!navigator.onLine) phase = 'offline';
   else if (pending) phase = 'pending';
-  else if (all.length < 4 || all.some((m) => m.fromCache)) phase = 'starting';
+  else if (all.length < 5 || all.some((m) => m.fromCache)) phase = 'starting';
   else phase = 'synced';
   const prev = getSyncStatus();
   setSyncStatus({ phase, email, error: phase === 'synced' ? undefined : prev.error });

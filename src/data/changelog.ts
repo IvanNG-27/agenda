@@ -8,6 +8,16 @@ export type Release = { version: string; changes: string[] };
 
 export const CHANGELOG: Release[] = [
   {
+    version: '1.3.0',
+    changes: [
+      'Nuevo: eventos. Apunta cumpleaños, comidas, quedadas, citas con el médico o días importantes con el botón + (elige "Evento").',
+      'Cada evento puede llevar hora, lugar y notas; los cumpleaños se repiten solos cada año y te dice cuántos cumple.',
+      'Verás tus próximos eventos en Hoy, y cada día en Semana y en el Calendario.',
+      'La Semana del móvil ahora enseña también el sábado y el domingo.',
+      'Ya no hace falta tener asignaturas: puedes usar Nocta solo para tus planes.',
+    ],
+  },
+  {
     version: '1.2.0',
     changes: [
       'Cuando Nocta se actualice, te enseñará qué ha cambiado, como ahora.',

@@ -52,6 +52,10 @@ export function SettingsView({ state, desktop }: Props) {
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
+/** "3 tareas, 1 examen y 2 eventos" */
+const summary = (s: State) =>
+  `${plural(s.tasks.length, 'tarea', 'tareas')}, ${plural(s.exams.length, 'examen', 'exámenes')} y ${plural(s.events.length, 'evento', 'eventos')}`;
+
 function Swatches({ label, value, onChange }: { label: string; value: string; onChange: (token: string) => void }) {
   return (
     <div className="swatches" role="radiogroup" aria-label={label}>
@@ -206,7 +210,7 @@ function BackupSection({ state }: { state: State }) {
   const confirm = () => {
     if (!pending) return;
     actions.replaceAll(pending);
-    setMessage(`Copia importada: ${plural(pending.tasks.length, 'tarea', 'tareas')} y ${plural(pending.exams.length, 'examen', 'exámenes')}.`);
+    setMessage(`Copia importada: ${summary(pending)}.`);
     setPending(null);
   };
 
@@ -222,9 +226,7 @@ function BackupSection({ state }: { state: State }) {
         {pending ? (
           <div className="backup__confirm" role="alert">
             <p className="backup__text backup__text--ink">
-              La copia tiene {plural(pending.tasks.length, 'tarea', 'tareas')} y {plural(pending.exams.length, 'examen', 'exámenes')}.
-              Si la importas, reemplaza lo que tienes ahora ({plural(state.tasks.length, 'tarea', 'tareas')} y{' '}
-              {plural(state.exams.length, 'examen', 'exámenes')}).
+              La copia tiene {summary(pending)}. Si la importas, reemplaza lo que tienes ahora ({summary(state)}).
             </p>
             <div className="backup__actions">
               <button type="button" className="btn" onClick={confirm}>

@@ -1,6 +1,6 @@
 # Nocta · Agenda
 
-Agenda oscura y personalizable para deberes y exámenes, basada en `../Bocetos/Nocta_especificacion_diseno.pdf`.
+Agenda oscura y personalizable para deberes, exámenes y eventos (cumpleaños, comidas, quedadas, citas…), basada en `../Bocetos/Nocta_especificacion_diseno.pdf`.
 React + TypeScript + Vite, instalable como PWA. Los datos se guardan en `localStorage` del navegador.
 
 ```bash
@@ -18,7 +18,7 @@ Para probar la versión de Pages en local: `npm run build:pages`.
 
 ## Sincronización (Firebase)
 
-Con sesión iniciada con Google (Ajustes → Sincronización), las tareas, exámenes y asignaturas se guardan en Firestore
+Con sesión iniciada con Google (Ajustes → Sincronización), las tareas, exámenes, eventos y asignaturas se guardan en Firestore
 y se ven en todos los dispositivos. Funciona sin conexión: los cambios se suben al volver.
 
 - Configuración del proyecto: `src/sync/config.ts` (valores de la consola de Firebase; no son secretos).
@@ -90,6 +90,7 @@ Sin Smart App Control, la primera vez puede aparecer el aviso azul de SmartScree
 - Móvil (< 900 px): Hoy · Semana · Tablero · Exámenes, botón + y Ajustes desde el avatar del Tablero.
 - Escritorio (≥ 900 px): Hoy (tres columnas) · Calendario (mes/semana) · Tablero kanban (arrastrar tareas) · Exámenes · Ajustes.
 - Asignaturas editables (nombre, abreviatura y color) en Ajustes.
+- Eventos personales (cumpleaños, comidas, quedadas, médico, días importantes…) con hora, lugar y repetición anual, desde el botón + → Evento. Se ven en Hoy, Semana y Calendario y no necesitan asignatura.
 
 Estructura: `src/styles/tokens.css` (tokens de diseño), `src/components` (SubjectChip, TaskItem, ExamCard…),
 `src/data` (modelo y almacenamiento), `src/lib` (fechas y reglas), `src/views` (pantallas).

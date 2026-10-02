@@ -1,10 +1,11 @@
-import type { Exam } from '../data/types';
+import type { AgendaEvent, Exam } from '../data/types';
+import { occursOn } from '../lib/events';
 import { addDays, day, DOW_LETTER, monthName, startOfMonth, startOfWeek } from '../lib/dates';
 import { navigate } from '../ui';
 import { SectionHeader } from './Common';
 
 /** Mini-calendario del mes (escritorio, panel derecho de "Hoy"). */
-export function MiniCalendar({ today, exams }: { today: string; exams: Exam[] }) {
+export function MiniCalendar({ today, exams, events }: { today: string; exams: Exam[]; events: AgendaEvent[] }) {
   const first = startOfMonth(today);
   const month = first.slice(0, 7);
   const start = startOfWeek(first);
@@ -20,10 +21,12 @@ export function MiniCalendar({ today, exams }: { today: string; exams: Exam[] })
           <span key={l} className="mini__dow">{l}</span>
         ))}
         {cells.map((d) => {
+          const hasEvent = events.some((e) => occursOn(e, d));
           const cls = [
             'mini__day',
             d === today && 'is-today',
             examDays.has(d) && 'has-exam',
+            hasEvent && 'has-event',
             d.slice(0, 7) !== month && 'is-other',
           ].filter(Boolean).join(' ');
           return (
@@ -32,7 +35,7 @@ export function MiniCalendar({ today, exams }: { today: string; exams: Exam[] })
               type="button"
               className={cls}
               onClick={() => navigate({ name: 'calendario', date: d })}
-              aria-label={`${day(d)} de ${monthName(d)}${examDays.has(d) ? ', hay examen' : ''}`}
+              aria-label={`${day(d)} de ${monthName(d)}${examDays.has(d) ? ', hay examen' : ''}${hasEvent ? ', hay eventos' : ''}`}
             >
               {day(d)}
             </button>

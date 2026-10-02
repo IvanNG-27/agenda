@@ -1,29 +1,31 @@
 import { useState } from 'react';
 import type { State } from '../data/types';
 import { ExamLine } from '../components/ExamCard';
+import { EventItem } from '../components/EventItem';
 import { TaskItem } from '../components/TaskItem';
 import { Empty, SectionHeader } from '../components/Common';
 import { Icon } from '../components/Icons';
 import { PageHeader } from '../components/PageHeader';
 import { addDays, day, DOW_LONG, DOW_SHORT, isoWeek, monthName, startOfWeek, weekday } from '../lib/dates';
 import { byDate, byDue, colorVar, subjectMap, upcomingExams } from '../lib/rules';
+import { eventColor, eventsOn } from '../lib/events';
 
 type Props = { state: State; today: string };
 
-/** Móvil C · Semana: tira L–V y línea de tiempo del día seleccionado. */
+/** Móvil C · Semana: tira L–D y línea de tiempo del día seleccionado. */
 export function SemanaView({ state, today }: Props) {
   const subjects = subjectMap(state.subjects);
-  // En fin de semana se enseña ya la semana siguiente
-  const initial = weekday(today) >= 5 ? addDays(startOfWeek(today), 7) : today;
-  const [selected, setSelected] = useState(initial);
+  const [selected, setSelected] = useState(today);
   const monday = startOfWeek(selected);
-  const days = [0, 1, 2, 3, 4].map((i) => addDays(monday, i));
+  // Toda la semana: los planes (cumpleaños, quedadas…) también caen en fin de semana
+  const days = [0, 1, 2, 3, 4, 5, 6].map((i) => addDays(monday, i));
 
   const tasksOn = (d: string) => state.tasks.filter((t) => t.dueDate === d).sort(byDue);
   const examsOn = (d: string) => state.exams.filter((e) => e.date === d).sort(byDate);
 
   const dayTasks = tasksOn(selected);
   const dayExams = examsOn(selected);
+  const dayEvents = eventsOn(state.events, selected);
   const next = upcomingExams(state.exams, today).find((e) => e.date !== selected);
   const tomorrow = addDays(today, 1);
 
@@ -50,7 +52,12 @@ export function SemanaView({ state, today }: Props) {
 
       <div className="strip" role="tablist" aria-label="Días de la semana">
         {days.map((d) => {
-          const colors = [...new Set([...examsOn(d), ...tasksOn(d)].map((x) => x.subjectId))].slice(0, 3);
+          const colors = [
+            ...new Set([
+              ...eventsOn(state.events, d).map(eventColor),
+              ...[...examsOn(d), ...tasksOn(d)].map((x) => colorVar(subjects.get(x.subjectId))),
+            ]),
+          ].slice(0, 3);
           const isSel = d === selected;
           return (
             <button
@@ -64,8 +71,8 @@ export function SemanaView({ state, today }: Props) {
               <span className="strip__dow">{DOW_SHORT[weekday(d)]}</span>
               <span className="strip__num">{day(d)}</span>
               <span className="strip__dots">
-                {colors.map((id) => (
-                  <span key={id} className="dot dot--6" style={isSel ? undefined : { background: colorVar(subjects.get(id)) }} />
+                {colors.map((c) => (
+                  <span key={c} className="dot dot--6" style={isSel ? undefined : { background: c }} />
                 ))}
               </span>
             </button>
@@ -77,8 +84,14 @@ export function SemanaView({ state, today }: Props) {
         <SectionHeader>
           {DOW_LONG[weekday(selected)]} {day(selected)}
         </SectionHeader>
-        {dayTasks.length || dayExams.length ? (
+        {dayTasks.length || dayExams.length || dayEvents.length ? (
           <div className="timeline">
+            {dayEvents.map((ev) => (
+              <div key={ev.id} className="timeline__row">
+                <span className="node" style={{ borderColor: eventColor(ev) }} />
+                <EventItem event={ev} date={selected} today={today} />
+              </div>
+            ))}
             {dayExams.map((e) => (
               <div key={e.id} className="timeline__row">
                 <span className="node node--exam" />

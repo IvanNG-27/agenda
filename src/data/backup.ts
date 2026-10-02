@@ -1,10 +1,13 @@
 // Copias de seguridad: exportar el estado a un .json e importarlo validando cada campo.
-import type { Exam, State, Subject, Task } from './types';
+import type { AgendaEvent, Exam, State, Subject, Task } from './types';
 import { initialState, PALETTE } from './defaults';
 import { todayISO } from '../lib/dates';
+import { EVENT_KINDS } from '../lib/events';
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 const COLORS = new Set(PALETTE.map((p) => p.token));
+const KINDS = new Set<string>(EVENT_KINDS.map((k) => k.kind));
+const HOUR = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 export function downloadBackup(state: State) {
   const payload = { app: 'nocta', exportedAt: new Date().toISOString(), data: state };
@@ -43,6 +46,7 @@ export function parseBackup(text: string): State {
   const subjects = arr(data.subjects).flatMap((s) => cleanSubject(s) ?? []);
   const tasks = arr(data.tasks).flatMap((t) => cleanTask(t) ?? []);
   const exams = arr(data.exams).flatMap((e) => cleanExam(e) ?? []);
+  const events = arr(data.events).flatMap((e) => cleanEvent(e) ?? []); // las copias de antes de la 1.3.0 no tienen
 
   return {
     version: 1,
@@ -50,6 +54,7 @@ export function parseBackup(text: string): State {
     subjects,
     tasks,
     exams,
+    events,
   };
 }
 
@@ -82,4 +87,14 @@ export function cleanExam(e: Record<string, unknown>): Exam | null {
   if (!id || !title || !subjectId || !date) return null;
   const prep = typeof e.prep === 'number' && Number.isFinite(e.prep) ? Math.min(100, Math.max(0, Math.round(e.prep))) : 0;
   return { id, title, subjectId, date, time: str(e.time, 30), prep };
+}
+
+export function cleanEvent(e: Record<string, unknown>): AgendaEvent | null {
+  const id = str(e.id, 60);
+  const title = str(e.title, 120);
+  const date = typeof e.date === 'string' && ISO.test(e.date) ? e.date : undefined;
+  if (!id || !title || !date) return null;
+  const kind = typeof e.kind === 'string' && KINDS.has(e.kind) ? (e.kind as AgendaEvent['kind']) : 'otro';
+  const time = typeof e.time === 'string' && HOUR.test(e.time) ? e.time : undefined;
+  return { id, title, kind, date, time, place: str(e.place, 120), notes: str(e.notes, 2000), yearly: e.yearly === true || undefined };
 }

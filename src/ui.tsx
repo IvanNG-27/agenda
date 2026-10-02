@@ -10,7 +10,7 @@ export type Route =
   | { name: 'asignatura'; id: string };
 
 export type EditorRequest = {
-  kind: 'task' | 'exam';
+  kind: 'task' | 'exam' | 'event';
   /** Si hay id, se edita; si no, se crea */
   id?: string;
   subjectId?: string;

@@ -18,7 +18,7 @@ export function pendingReleases(state: State): Release[] {
   }
   if (seen === null) {
     // Quien ya usaba Nocta antes de que existiera este aviso ve la versión actual; quien empieza de cero, nada.
-    const hasData = state.subjects.length + state.tasks.length + state.exams.length > 0 || state.userName !== '';
+    const hasData = state.subjects.length + state.tasks.length + state.exams.length + state.events.length > 0 || state.userName !== '';
     if (!hasData) {
       markReleasesSeen();
       return [];

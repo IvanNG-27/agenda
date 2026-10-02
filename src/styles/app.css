@@ -721,7 +721,10 @@ ul {
 }
 
 .strip__day {
-  width: var(--day-w);
+  /* 7 días: se reparten el ancho, sin pasar del de diseño */
+  flex: 1;
+  min-width: 0;
+  max-width: var(--day-w);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1648,4 +1651,57 @@ label.field .field__label {
   .search {
     width: 180px;
   }
+}
+
+/* ---------- Eventos personales ---------- */
+
+/* En el sitio de la casilla de las tareas va el emoji del tipo de evento */
+.event-icon {
+  width: var(--check);
+  height: var(--check);
+  margin-left: 6px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font: var(--t-body);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.check-row .checkbox {
+  margin-left: 0;
+}
+
+.welcome__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.mini__day {
+  position: relative;
+}
+
+.mini__day.has-event::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 2px;
+  width: 4px;
+  height: 4px;
+  margin-left: -2px;
+  border-radius: 50%;
+  background: var(--subj-rosa);
+}
+
+.mini__day.is-today.has-event::after {
+  background: var(--accent-ink);
 }

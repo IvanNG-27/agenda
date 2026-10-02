@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { State } from '../data/types';
 import { ExamCard } from '../components/ExamCard';
+import { EventItem } from '../components/EventItem';
 import { TaskItem } from '../components/TaskItem';
 import { Empty, List, SectionHeader } from '../components/Common';
 import { Icon } from '../components/Icons';
@@ -9,6 +10,7 @@ import {
   addDays, addMonths, cap, day, dayMonth, DOW_LONG, DOW_SHORT, endOfWeek, monthName, startOfMonth, startOfWeek, weekday, year,
 } from '../lib/dates';
 import { byDate, byDue, colorVar, subjectMap, upcomingExams } from '../lib/rules';
+import { eventColor, eventsOn, kindInfo } from '../lib/events';
 import { useUI } from '../ui';
 
 type Props = { state: State; today: string; initialDate?: string; initialMode: 'mes' | 'semana' };
@@ -57,6 +59,7 @@ export function CalendarView({ state, today, initialDate, initialMode }: Props) 
 
   const selTasks = tasksOn(selected);
   const selExams = examsOn(selected);
+  const selEvents = eventsOn(state.events, selected);
   const nextDay = addDays(selected, 1);
   const nextTasks = tasksOn(nextDay).filter((t) => !t.done);
   const next = upcomingExams(state.exams, today)[0];
@@ -104,8 +107,32 @@ export function CalendarView({ state, today, initialDate, initialMode }: Props) 
             const exams = examsOn(d);
             const tasks = tasksOn(d);
             const events = [
-              ...exams.map((e) => ({ kind: 'exam' as const, id: e.id, title: e.title, subjectId: e.subjectId, done: false })),
-              ...tasks.map((t) => ({ kind: 'task' as const, id: t.id, title: t.title, subjectId: t.subjectId, done: t.done })),
+              ...eventsOn(state.events, d).map((ev) => {
+                const info = kindInfo(ev.kind);
+                return {
+                  kind: 'event' as const,
+                  id: ev.id,
+                  text: `${info.emoji} ${ev.title}`, // la hora no cabe en la casilla: va en el panel y al pasar el ratón
+                  hint: [info.label, ev.time, ev.title].filter(Boolean).join(' · '),
+                  color: eventColor(ev) as string | undefined,
+                  done: false,
+                };
+              }),
+              ...exams.map((e) => {
+                const s = subjects.get(e.subjectId);
+                return {
+                  kind: 'exam' as const,
+                  id: e.id,
+                  text: `${s?.short ?? 'Examen'} · ${e.title}`,
+                  hint: `Examen · ${s?.name ?? ''} · ${e.title}`,
+                  color: undefined,
+                  done: false,
+                };
+              }),
+              ...tasks.map((t) => {
+                const s = subjects.get(t.subjectId);
+                return { kind: 'task' as const, id: t.id, text: t.title, hint: `${s?.name ?? ''} · ${t.title}`, color: colorVar(s), done: t.done };
+              }),
             ];
             const limit = mode === 'mes' ? MAX_EVENTS : events.length;
             const cls = [
@@ -128,24 +155,21 @@ export function CalendarView({ state, today, initialDate, initialMode }: Props) 
                 >
                   {day(d)}
                 </button>
-                {events.slice(0, limit).map((ev) => {
-                  const s = subjects.get(ev.subjectId);
-                  return (
-                    <button
-                      key={ev.kind + ev.id}
-                      type="button"
-                      className={`event${ev.kind === 'exam' ? ' event--exam' : ''}${ev.done ? ' is-done' : ''}`}
-                      style={ev.kind === 'exam' ? undefined : { borderLeftColor: colorVar(s) }}
-                      title={`${ev.kind === 'exam' ? 'Examen · ' : ''}${s?.name ?? ''} · ${ev.title}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openEditor({ kind: ev.kind, id: ev.id });
-                      }}
-                    >
-                      {ev.kind === 'exam' ? `${s?.short ?? 'Examen'} · ${ev.title}` : ev.title}
-                    </button>
-                  );
-                })}
+                {events.slice(0, limit).map((ev) => (
+                  <button
+                    key={ev.kind + ev.id}
+                    type="button"
+                    className={`event${ev.kind === 'exam' ? ' event--exam' : ''}${ev.done ? ' is-done' : ''}`}
+                    style={ev.color ? { borderLeftColor: ev.color } : undefined}
+                    title={ev.hint}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openEditor({ kind: ev.kind, id: ev.id });
+                    }}
+                  >
+                    {ev.text}
+                  </button>
+                ))}
                 {events.length > limit && <span className="event__more">+{events.length - limit} más</span>}
               </div>
             );
@@ -156,6 +180,17 @@ export function CalendarView({ state, today, initialDate, initialMode }: Props) 
       <aside className="panel">
         <p className="kicker">{DOW_LONG[weekday(selected)]}</p>
         <p className="display">{dayMonth(selected)}</p>
+
+        {selEvents.length > 0 && (
+          <section>
+            <SectionHeader>{isToday ? 'Eventos de hoy' : 'Eventos del día'}</SectionHeader>
+            <List>
+              {selEvents.map((ev) => (
+                <EventItem key={ev.id} event={ev} date={selected} today={today} />
+              ))}
+            </List>
+          </section>
+        )}
 
         {selExams.length > 0 && (
           <section>

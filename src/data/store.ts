@@ -1,6 +1,6 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { initialState } from './defaults';
-import type { Exam, State, Subject, Task } from './types';
+import type { AgendaEvent, Exam, State, Subject, Task } from './types';
 import { todayISO } from '../lib/dates';
 
 const KEY = 'nocta:v1';
@@ -10,7 +10,8 @@ function load(): State {
     const raw = localStorage.getItem(KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as State;
-      if (parsed && parsed.version === 1) return parsed;
+      // Los datos guardados antes de la 1.3.0 no tienen eventos
+      if (parsed && parsed.version === 1) return { ...parsed, events: parsed.events ?? [] };
     }
   } catch {
     /* datos corruptos o almacenamiento bloqueado: empezamos de cero */
@@ -53,6 +54,8 @@ export type Remote = {
   removeTask(id: string): void;
   putExam(e: Exam): void;
   removeExam(id: string): void;
+  putEvent(e: AgendaEvent): void;
+  removeEvent(id: string): void;
   putSubject(s: Subject, order: number): void;
   removeSubject(id: string): void;
   putProfile(p: { userName: string }): void;
@@ -65,7 +68,7 @@ export const setRemote = (r: Remote | null) => {
 };
 
 /** Aplica datos que llegan de la nube sin volver a enviarlos. */
-export function applyRemote(patch: Partial<Pick<State, 'userName' | 'subjects' | 'tasks' | 'exams'>>) {
+export function applyRemote(patch: Partial<Pick<State, 'userName' | 'subjects' | 'tasks' | 'exams' | 'events'>>) {
   set({ ...state, ...patch });
 }
 
@@ -106,6 +109,20 @@ export const actions = {
   deleteExam(id: string) {
     set({ ...state, exams: state.exams.filter((e) => e.id !== id) });
     remote?.removeExam(id);
+  },
+  addEvent(e: Omit<AgendaEvent, 'id'>) {
+    const event: AgendaEvent = { ...e, id: uid() };
+    set({ ...state, events: [...state.events, event] });
+    remote?.putEvent(event);
+  },
+  updateEvent(id: string, patch: Partial<AgendaEvent>) {
+    set({ ...state, events: state.events.map((e) => (e.id === id ? { ...e, ...patch } : e)) });
+    const event = state.events.find((e) => e.id === id);
+    if (event) remote?.putEvent(event);
+  },
+  deleteEvent(id: string) {
+    set({ ...state, events: state.events.filter((e) => e.id !== id) });
+    remote?.removeEvent(id);
   },
   updateSubject(id: string, patch: Partial<Subject>) {
     set({ ...state, subjects: state.subjects.map((s) => (s.id === id ? { ...s, ...patch } : s)) });

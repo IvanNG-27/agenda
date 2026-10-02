@@ -17,14 +17,16 @@ export function PageHeader({ kicker, title, children }: { kicker?: ReactNode; ti
 
 /** Buscador + botón principal de escritorio */
 export function DesktopActions({
-  state, today, label = '+ Nueva tarea', req = { kind: 'task' },
+  state, today, label, req = { kind: 'task' },
 }: { state: State; today: string; label?: string; req?: EditorRequest }) {
   const { openEditor } = useUI();
+  // Sin asignaturas no hay tareas: el editor se abre en Evento
+  const text = label ?? (state.subjects.length ? '+ Nueva tarea' : '+ Nuevo evento');
   return (
     <>
       <SearchBox state={state} today={today} />
       <button type="button" className="btn" onClick={() => openEditor(req)}>
-        {label}
+        {text}
       </button>
     </>
   );

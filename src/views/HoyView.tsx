@@ -1,20 +1,35 @@
 import type { State, Task } from '../data/types';
 import { ExamCard } from '../components/ExamCard';
+import { EventItem } from '../components/EventItem';
 import { TaskItem } from '../components/TaskItem';
 import { Empty, List, SectionHeader, Welcome } from '../components/Common';
 import { MiniCalendar } from '../components/MiniCalendar';
 import { DesktopActions, PageHeader } from '../components/PageHeader';
 import { longDate } from '../lib/dates';
 import { groupForToday, subjectMap, upcomingExams } from '../lib/rules';
+import { upcomingEvents } from '../lib/events';
 
 type Props = { state: State; today: string; desktop: boolean };
+
+/** Días hacia delante en los que se enseñan eventos en Hoy */
+const EVENT_DAYS = 14;
 
 export function HoyView({ state, today, desktop }: Props) {
   const subjects = subjectMap(state.subjects);
   const g = groupForToday(state.tasks, today);
   const exams = upcomingExams(state.exams, today);
   const next = exams[0];
+  const events = upcomingEvents(state.events, today, EVENT_DAYS);
   const nothing = !g.late.length && !g.today.length && !g.tomorrow.length && !g.week.length && !g.later.length;
+  const fresh = state.subjects.length === 0 && state.events.length === 0;
+
+  const eventList = (max: number) => (
+    <List>
+      {events.slice(0, max).map((o) => (
+        <EventItem key={o.event.id} event={o.event} date={o.date} today={today} withDate />
+      ))}
+    </List>
+  );
 
   const section = (title: string, tasks: Task[], opts: { count?: boolean; tone?: 'exam'; always?: boolean } = {}) =>
     (tasks.length > 0 || opts.always) && (
@@ -41,12 +56,18 @@ export function HoyView({ state, today, desktop }: Props) {
         {next && (
           <ExamCard exam={next} subject={subjects.get(next.subjectId)} today={today} hot label="Próximo examen" inlineTitle />
         )}
+        {events.length > 0 && (
+          <section>
+            <SectionHeader count={events.length}>Próximos eventos</SectionHeader>
+            {eventList(6)}
+          </section>
+        )}
         {section('Atrasado', g.late, { count: true, tone: 'exam' })}
         {section('Hoy', g.today, { count: true })}
         {section('Mañana', g.tomorrow, { count: true })}
         {section('Esta semana', g.week)}
         {section('Más adelante', g.later)}
-        {state.subjects.length === 0 ? <Welcome /> : nothing && <Empty />}
+        {fresh ? <Welcome /> : nothing && !events.length && <Empty />}
       </main>
     );
   }
@@ -57,8 +78,10 @@ export function HoyView({ state, today, desktop }: Props) {
         <PageHeader kicker={longDate(today)} title="Hoy">
           <DesktopActions state={state} today={today} />
         </PageHeader>
-        {state.subjects.length === 0 ? (
+        {fresh ? (
           <Welcome />
+        ) : nothing && state.subjects.length === 0 ? (
+          <Empty>Sin deberes: añade asignaturas en Ajustes para apuntarlos</Empty>
         ) : nothing ? (
           <Empty />
         ) : (
@@ -87,7 +110,11 @@ export function HoyView({ state, today, desktop }: Props) {
         ) : (
           <Empty>Sin exámenes a la vista</Empty>
         )}
-        <MiniCalendar today={today} exams={state.exams} />
+        <section>
+          <SectionHeader>Próximos eventos</SectionHeader>
+          {events.length ? eventList(4) : <Empty>Sin eventos en las próximas dos semanas</Empty>}
+        </section>
+        <MiniCalendar today={today} exams={state.exams} events={state.events} />
       </aside>
     </>
   );
