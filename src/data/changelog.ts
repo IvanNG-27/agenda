@@ -8,6 +8,15 @@ export type Release = { version: string; changes: string[] };
 
 export const CHANGELOG: Release[] = [
   {
+    version: '1.4.0',
+    changes: [
+      'Nuevo: rachas de estudio. En Exámenes, pulsa "He estudiado hoy" debajo de un examen cada día que estudies para él.',
+      'Verás cuántos días seguidos llevas estudiando, en general y en cada examen (🔥), y tus últimos 7 días.',
+      'Nocta guarda tu mejor racha y te felicita al llegar a 3, 7, 14, 30 días… y cuando bates tu récord.',
+      'Si no has estudiado hoy, te recuerda que aún puedes mantener la racha antes de medianoche.',
+    ],
+  },
+  {
     version: '1.3.0',
     changes: [
       'Nuevo: eventos. Apunta cumpleaños, comidas, quedadas, citas con el médico o días importantes con el botón + (elige "Evento").',

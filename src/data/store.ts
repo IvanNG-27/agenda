@@ -10,8 +10,8 @@ function load(): State {
     const raw = localStorage.getItem(KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as State;
-      // Los datos guardados antes de la 1.3.0 no tienen eventos
-      if (parsed && parsed.version === 1) return { ...parsed, events: parsed.events ?? [] };
+      // Los datos guardados antes de la 1.3.0 no tienen eventos, ni los de antes de la 1.4.0 rachas
+      if (parsed && parsed.version === 1) return { ...parsed, events: parsed.events ?? [], studyLog: parsed.studyLog ?? [] };
     }
   } catch {
     /* datos corruptos o almacenamiento bloqueado: empezamos de cero */
@@ -59,6 +59,7 @@ export type Remote = {
   putSubject(s: Subject, order: number): void;
   removeSubject(id: string): void;
   putProfile(p: { userName: string }): void;
+  putStudyLog(days: string[]): void;
   replaceAll(prev: State, next: State): void;
 };
 
@@ -68,7 +69,7 @@ export const setRemote = (r: Remote | null) => {
 };
 
 /** Aplica datos que llegan de la nube sin volver a enviarlos. */
-export function applyRemote(patch: Partial<Pick<State, 'userName' | 'subjects' | 'tasks' | 'exams' | 'events'>>) {
+export function applyRemote(patch: Partial<Pick<State, 'userName' | 'subjects' | 'tasks' | 'exams' | 'events' | 'studyLog'>>) {
   set({ ...state, ...patch });
 }
 
@@ -109,6 +110,26 @@ export const actions = {
   deleteExam(id: string) {
     set({ ...state, exams: state.exams.filter((e) => e.id !== id) });
     remote?.removeExam(id);
+  },
+  /** Marca o desmarca "He estudiado hoy" en un examen. */
+  toggleStudied(examId: string, today: string) {
+    const exam = state.exams.find((e) => e.id === examId);
+    if (!exam) return;
+    const days = exam.studyDays ?? [];
+    const studied = !days.includes(today);
+    const studyDays = studied ? [...days, today].sort() : days.filter((d) => d !== today);
+    const otherToday = state.exams.some((e) => e.id !== examId && e.studyDays?.includes(today));
+    const studyLog =
+      studied && !state.studyLog.includes(today)
+        ? [...state.studyLog, today].sort()
+        : !studied && !otherToday
+          ? state.studyLog.filter((d) => d !== today)
+          : state.studyLog;
+    actions.updateExam(examId, { studyDays });
+    if (studyLog !== state.studyLog) {
+      set({ ...state, studyLog });
+      remote?.putStudyLog(studyLog);
+    }
   },
   addEvent(e: Omit<AgendaEvent, 'id'>) {
     const event: AgendaEvent = { ...e, id: uid() };

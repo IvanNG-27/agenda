@@ -20,6 +20,7 @@ export const initialState = (): State => ({
   tasks: [],
   exams: [],
   events: [],
+  studyLog: [],
 });
 
 /** Primer color de la paleta que aún no usa ninguna asignatura (o el siguiente en rotación si están todos). */

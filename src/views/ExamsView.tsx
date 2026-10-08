@@ -1,5 +1,6 @@
 import type { State } from '../data/types';
 import { ExamCard } from '../components/ExamCard';
+import { StudiedButton, StudyStreak } from '../components/StudyStreak';
 import { Empty, SectionHeader } from '../components/Common';
 import { DesktopActions, PageHeader } from '../components/PageHeader';
 import { pastExams, subjectMap, upcomingExams } from '../lib/rules';
@@ -18,12 +19,22 @@ export function ExamsView({ state, today, desktop }: Props) {
         {desktop && <DesktopActions state={state} today={today} label="+ Nuevo examen" req={{ kind: 'exam' }} />}
       </PageHeader>
 
+      {(upcoming.length > 0 || state.studyLog.length > 0) && (
+        <section>
+          <SectionHeader>Racha de estudio</SectionHeader>
+          <StudyStreak studyLog={state.studyLog} today={today} />
+        </section>
+      )}
+
       <section>
         <SectionHeader>Próximos</SectionHeader>
         {upcoming.length ? (
           <div className="exam-grid">
             {upcoming.map((e, i) => (
-              <ExamCard key={e.id} exam={e} subject={subjects.get(e.subjectId)} today={today} hot={i === 0} />
+              <div key={e.id} className="exam-item">
+                <ExamCard exam={e} subject={subjects.get(e.subjectId)} today={today} hot={i === 0} />
+                <StudiedButton exam={e} today={today} />
+              </div>
             ))}
           </div>
         ) : (

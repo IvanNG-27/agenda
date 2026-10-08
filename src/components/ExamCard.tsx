@@ -1,5 +1,6 @@
 import type { Exam, Subject } from '../data/types';
 import { diffDays, DOW_LONG, DOW_SHORT, day, shortDate, weekday } from '../lib/dates';
+import { currentStreak } from '../lib/streak';
 import { SubjectChip } from './SubjectChip';
 import { useUI } from '../ui';
 
@@ -29,6 +30,7 @@ export function ExamCard({
   const { openEditor } = useUI();
   const days = diffDays(today, exam.date);
   const past = days < 0;
+  const streak = past ? 0 : currentStreak(exam.studyDays ?? [], today);
   const number = days === 0 ? 'Hoy' : String(days);
   const unit = days === 0 ? '' : days === 1 ? 'día' : 'días';
   const caption = past
@@ -48,6 +50,11 @@ export function ExamCard({
       <span className="exam__text">
         <span className="exam__top">
           <span className="exam__tag">{label}</span>
+          {streak > 0 && (
+            <span className="exam__streak" title={`Racha de estudio: ${streak} ${streak === 1 ? 'día' : 'días'}`}>
+              🔥 {streak}
+            </span>
+          )}
           {chip && subject && <SubjectChip subject={subject} />}
         </span>
         {!inlineTitle && <span className="exam__title">{exam.title}</span>}

@@ -1,7 +1,7 @@
 // Sincronización con Firebase: inicio de sesión con Google y datos en Firestore.
 //
 // Estructura en Firestore (una colección por usuario, solo él puede leerla; ver firestore.rules):
-//   users/{uid}                 → { userName }
+//   users/{uid}                 → { userName, studyLog }
 //   users/{uid}/subjects/{id}   → Subject + order
 //   users/{uid}/tasks/{id}      → Task
 //   users/{uid}/exams/{id}      → Exam
@@ -43,7 +43,7 @@ import {
   type SnapshotMetadata,
 } from 'firebase/firestore';
 import { applyRemote, getState, setRemote, type Remote } from '../data/store';
-import { cleanEvent, cleanExam, cleanSubject, cleanTask } from '../data/backup';
+import { cleanDays, cleanEvent, cleanExam, cleanSubject, cleanTask } from '../data/backup';
 import type { State } from '../data/types';
 import { firebaseConfig, useEmulator } from './config';
 import { getSyncStatus, messageFor, setSyncStatus } from './index';
@@ -165,9 +165,14 @@ async function merge(uid: string, local: State) {
   local.subjects.forEach((s, order) => {
     if (!remoteSubjects.has(s.id)) writes.push([doc(base, 'subjects', s.id), { ...s, order }]);
   });
-  if (!profile.exists()) writes.push([base, { userName: local.userName }]);
+  if (!profile.exists()) writes.push([base, { userName: local.userName, studyLog: local.studyLog }]);
+  else if (local.studyLog.length) {
+    // Los días estudiados de los dos lados se juntan para no perder ninguna racha
+    const studyLog = cleanDays([...cleanDays(profile.data()?.studyLog), ...local.studyLog]);
+    writes.push([base, { studyLog }]);
+  }
 
-  await commit(writes.map(([ref, data]) => (b) => b.set(ref, data)));
+  await commit(writes.map(([ref, data]) => (b) => b.set(ref, data, { merge: true })));
 }
 
 type BatchOp = (b: ReturnType<typeof writeBatch>) => void;
@@ -218,8 +223,9 @@ function listen(u: User) {
       { includeMetadataChanges: true },
       (snap) => {
         meta.profile = snap.metadata;
-        const name = snap.data()?.userName;
-        if (!snap.metadata.hasPendingWrites && typeof name === 'string') applyRemote({ userName: name.slice(0, 40) });
+        const data = snap.data();
+        if (!snap.metadata.hasPendingWrites && typeof data?.userName === 'string') applyRemote({ userName: data.userName.slice(0, 40) });
+        if (!snap.metadata.hasPendingWrites && data && 'studyLog' in data) applyRemote({ studyLog: cleanDays(data.studyLog) });
         updateStatus();
       },
       onError,
@@ -251,6 +257,7 @@ function makeRemote(base: DocumentReference): Remote {
     putSubject: (s, order) => send(setDoc(ref('subjects', s.id), { ...s, order })),
     removeSubject: (id) => send(deleteDoc(ref('subjects', id))),
     putProfile: (p) => send(setDoc(base, p, { merge: true })),
+    putStudyLog: (studyLog) => send(setDoc(base, { studyLog }, { merge: true })),
     replaceAll: (prev, next) => {
       const ops: BatchOp[] = [];
       const keep = (list: { id: string }[]) => new Set(list.map((x) => x.id));
@@ -266,7 +273,7 @@ function makeRemote(base: DocumentReference): Remote {
       for (const e of next.exams) ops.push((b) => b.set(ref('exams', e.id), e));
       for (const e of next.events) ops.push((b) => b.set(ref('events', e.id), e));
       next.subjects.forEach((s, order) => ops.push((b) => b.set(ref('subjects', s.id), { ...s, order })));
-      ops.push((b) => b.set(base, { userName: next.userName }, { merge: true }));
+      ops.push((b) => b.set(base, { userName: next.userName, studyLog: next.studyLog }, { merge: true }));
       send(commit(ops));
     },
   };

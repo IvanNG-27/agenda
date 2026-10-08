@@ -47,6 +47,7 @@ export function parseBackup(text: string): State {
   const tasks = arr(data.tasks).flatMap((t) => cleanTask(t) ?? []);
   const exams = arr(data.exams).flatMap((e) => cleanExam(e) ?? []);
   const events = arr(data.events).flatMap((e) => cleanEvent(e) ?? []); // las copias de antes de la 1.3.0 no tienen
+  const studyLog = cleanDays(data.studyLog); // ni las de antes de la 1.4.0
 
   return {
     version: 1,
@@ -55,6 +56,7 @@ export function parseBackup(text: string): State {
     tasks,
     exams,
     events,
+    studyLog,
   };
 }
 
@@ -86,7 +88,14 @@ export function cleanExam(e: Record<string, unknown>): Exam | null {
   const date = typeof e.date === 'string' && ISO.test(e.date) ? e.date : undefined;
   if (!id || !title || !subjectId || !date) return null;
   const prep = typeof e.prep === 'number' && Number.isFinite(e.prep) ? Math.min(100, Math.max(0, Math.round(e.prep))) : 0;
-  return { id, title, subjectId, date, time: str(e.time, 30), prep };
+  const studyDays = cleanDays(e.studyDays);
+  return { id, title, subjectId, date, time: str(e.time, 30), prep, studyDays: studyDays.length ? studyDays : undefined };
+}
+
+/** Lista de días ISO sin repetidos y ordenada (rachas de estudio). */
+export function cleanDays(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  return [...new Set(v.filter((d): d is string => typeof d === 'string' && ISO.test(d)))].sort().slice(-3660);
 }
 
 export function cleanEvent(e: Record<string, unknown>): AgendaEvent | null {

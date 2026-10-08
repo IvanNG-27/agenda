@@ -90,6 +90,7 @@ Sin Smart App Control, la primera vez puede aparecer el aviso azul de SmartScree
 - Móvil (< 900 px): Hoy · Semana · Tablero · Exámenes, botón + y Ajustes desde el avatar del Tablero.
 - Escritorio (≥ 900 px): Hoy (tres columnas) · Calendario (mes/semana) · Tablero kanban (arrastrar tareas) · Exámenes · Ajustes.
 - Asignaturas editables (nombre, abreviatura y color) en Ajustes.
+- Rachas de estudio: en Exámenes, "He estudiado hoy" en cada examen; días seguidos (general y por examen), últimos 7 días, mejor racha guardada y mensajes de ánimo.
 - Eventos personales (cumpleaños, comidas, quedadas, médico, días importantes…) con hora, lugar y repetición anual, desde el botón + → Evento. Se ven en Hoy, Semana y Calendario y no necesitan asignatura.
 
 Estructura: `src/styles/tokens.css` (tokens de diseño), `src/components` (SubjectChip, TaskItem, ExamCard…),

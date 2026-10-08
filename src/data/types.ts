@@ -22,6 +22,8 @@ export type Exam = {
   date: string; // ISO yyyy-mm-dd
   time?: string; // "1ª hora"
   prep: number; // 0–100, % de repaso
+  /** Días (ISO) en los que se marcó "He estudiado hoy" para este examen */
+  studyDays?: string[];
 };
 
 export type EventKind = 'cumple' | 'comida' | 'quedada' | 'medico' | 'importante' | 'otro';
@@ -46,4 +48,6 @@ export type State = {
   tasks: Task[];
   exams: Exam[];
   events: AgendaEvent[];
+  /** Todos los días en los que se ha estudiado. Se conserva aunque se borren exámenes: de aquí sale la mejor racha. */
+  studyLog: string[];
 };
