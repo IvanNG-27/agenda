@@ -14,13 +14,33 @@ import '@fontsource/jetbrains-mono/latin-600.css';
 import './styles/tokens.css';
 import './styles/app.css';
 
-registerSW({ immediate: true });
+// Dentro de un iframe de otra web la app no arranca (protección contra clickjacking: GitHub Pages no permite
+// enviar la cabecera frame-ancestors, y en una <meta> no tiene efecto).
+let framed = true;
+try {
+  framed = window.top !== window.self;
+} catch {
+  /* acceder a window.top desde otro origen lanza error: también está enmarcada */
+}
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-);
+if (framed) {
+  const root = document.getElementById('root')!;
+  root.className = 'framed';
+  const link = document.createElement('a');
+  link.href = location.href;
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
+  link.textContent = 'Abrir Nocta en una pestaña nueva';
+  root.append('Nocta no se puede usar dentro de otra página. ', link);
+} else {
+  registerSW({ immediate: true });
 
-startSync();
-startUpdateChecks();
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <App />
+    </StrictMode>,
+  );
+
+  startSync();
+  startUpdateChecks();
+}

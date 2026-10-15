@@ -261,6 +261,7 @@ export function Editor({ req, state, today, desktop, onClose }: Props) {
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder={kind === 'event' ? 'Llevar el regalo' : 'Tema 2'}
+                maxLength={2000}
                 rows={2}
               />
             </label>

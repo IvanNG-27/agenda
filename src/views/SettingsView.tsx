@@ -1,14 +1,14 @@
 import { useCallback, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import type { State } from '../data/types';
 import { actions } from '../data/store';
-import { downloadBackup, parseBackup } from '../data/backup';
+import { downloadBackup, MAX_BACKUP_BYTES, parseBackup } from '../data/backup';
 import { nextColor, PALETTE, shortFrom } from '../data/defaults';
 import type { Subject } from '../data/types';
 import { SectionHeader } from '../components/Common';
 import { Icon } from '../components/Icons';
 import { PageHeader } from '../components/PageHeader';
 import { href } from '../ui';
-import { signIn, signOut, useSync, type SyncStatus } from '../sync';
+import { deleteAccount, signIn, signOut, useSync, type SyncStatus } from '../sync';
 import { isDesktopApp } from '../sync/config';
 import { releasesBetween } from '../data/changelog';
 import { WhatsNew } from '../components/WhatsNew';
@@ -199,6 +199,7 @@ function BackupSection({ state }: { state: State }) {
     e.target.value = '';
     if (!file) return;
     try {
+      if (file.size > MAX_BACKUP_BYTES) throw new Error('La copia es demasiado grande (máximo 5 MB).');
       setPending(parseBackup(await file.text()));
       setMessage('');
     } catch (err) {
@@ -269,6 +270,8 @@ const STATUS_TEXT: Partial<Record<SyncStatus['phase'], string>> = {
 
 function SyncSection() {
   const sync = useSync();
+  const [confirmOut, setConfirmOut] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   if (sync.phase === 'unconfigured') return null;
 
   let body;
@@ -287,11 +290,47 @@ function SyncSection() {
           <span className={`sync-dot sync-dot--${sync.phase}`} aria-hidden="true" />
           {STATUS_TEXT[sync.phase]}
         </p>
-        <div className="backup__actions">
-          <button type="button" className="btn btn--secondary" onClick={() => signOut()}>
-            Cerrar sesión
-          </button>
-        </div>
+        {confirmOut ? (
+          <div className="backup__confirm" role="alert">
+            <p className="backup__text backup__text--ink">
+              Al cerrar sesión se borra tu agenda de este dispositivo. Sigue guardada en tu cuenta y vuelve al iniciar sesión.
+              {(sync.phase === 'pending' || sync.phase === 'offline') &&
+                ' Ojo: hay cambios que aún no se han subido y se perderán.'}
+            </p>
+            <div className="backup__actions">
+              <button type="button" className="btn" onClick={() => signOut()}>
+                Cerrar sesión y borrar de este dispositivo
+              </button>
+              <button type="button" className="btn btn--secondary" onClick={() => setConfirmOut(false)}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        ) : confirmDelete ? (
+          <div className="backup__confirm" role="alert">
+            <p className="backup__text backup__text--ink">
+              Se borrarán para siempre tu cuenta de Nocta y todo lo que tienes guardado en la nube y en este dispositivo. No
+              se puede deshacer: si quieres conservar algo, exporta antes una copia.
+            </p>
+            <div className="backup__actions">
+              <button type="button" className="btn btn--danger" onClick={() => deleteAccount()}>
+                Borrar mi cuenta para siempre
+              </button>
+              <button type="button" className="btn btn--secondary" onClick={() => setConfirmDelete(false)}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="backup__actions">
+            <button type="button" className="btn btn--secondary" onClick={() => setConfirmOut(true)}>
+              Cerrar sesión
+            </button>
+            <button type="button" className="text-btn" onClick={() => setConfirmDelete(true)}>
+              Borrar mi cuenta y mis datos
+            </button>
+          </div>
+        )}
       </>
     );
   } else {
@@ -335,7 +374,11 @@ function AppVersion() {
         Nocta {__APP_VERSION__} · {isDesktopApp ? 'app de escritorio' : 'versión web'} ·{' '}
         <button type="button" className="app-version__link" onClick={() => setOpen(true)}>
           Novedades
-        </button>
+        </button>{' '}
+        ·{' '}
+        <a className="app-version__link" href={href({ name: 'privacidad' })}>
+          Privacidad
+        </a>
       </p>
       {update && (
         <p className="app-version app-version--update">

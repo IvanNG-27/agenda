@@ -1,5 +1,5 @@
 // Proceso principal de la app de escritorio (Electron). Carga la build de Vite desde dist-app/.
-const { app, BrowserWindow, shell, Menu } = require('electron');
+const { app, BrowserWindow, shell, Menu, session } = require('electron');
 const path = require('node:path');
 
 if (!app.requestSingleInstanceLock()) {
@@ -51,6 +51,9 @@ app.on('second-instance', () => {
 });
 
 app.whenReady().then(() => {
+  // La app no necesita cámara, micrófono, ubicación, notificaciones… : se deniega cualquier permiso
+  session.defaultSession.setPermissionRequestHandler((_wc, _permission, callback) => callback(false));
+  session.defaultSession.setPermissionCheckHandler(() => false);
   Menu.setApplicationMenu(null);
   createWindow();
   app.on('activate', () => {

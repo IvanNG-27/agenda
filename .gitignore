@@ -9,3 +9,14 @@ dist-desktop
 *.tsbuildinfo
 instaladores
 *-debug.log
+
+# Secretos y certificados: nunca al repositorio
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.pfx
+*.p12
+credentials*.json
+serviceAccount*.json

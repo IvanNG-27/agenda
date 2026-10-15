@@ -1,5 +1,8 @@
 # Informe de auditoría de seguridad — Nocta
 
+> **Actualización 2026-10-15:** los hallazgos se corrigieron en la 1.4.1 y se comprobaron con ataques reales. Los
+> resultados, antes y después, están en `SECURITY_PENTEST_REPORT.md`.
+
 - **Fecha:** 2026-10-06
 - **Commit auditado:** `3c66156` ("Eventos personales"), versión 1.3.0
 - **Alcance:** todo el repositorio `agenda/`, la web publicada (`https://ivanng-27.github.io/agenda/`) y la configuración pública del proyecto de Firebase `nocta-5f52e`.

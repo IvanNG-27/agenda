@@ -11,7 +11,7 @@ const folder = path.join(out, 'Nocta');
 const zip = path.join(out, `Nocta-${version}-windows.zip`);
 
 if (!fs.existsSync(path.join(unpacked, 'Nocta.exe'))) {
-  throw new Error(`No está ${unpacked}\Nocta.exe: electron-builder no ha terminado bien.`);
+  throw new Error(`No está ${path.join(unpacked, 'Nocta.exe')}: electron-builder no ha terminado bien.`);
 }
 
 fs.rmSync(folder, { recursive: true, force: true });
@@ -22,10 +22,18 @@ try {
   fs.cpSync(unpacked, folder, { recursive: true }); // si algo tiene la carpeta abierta, se copia
 }
 
-const tar = path.join(process.env.SystemRoot || 'C:\Windows', 'System32', 'tar.exe');
+// La app de demostración de Electron no hace falta: con ella, Nocta.exe podría abrir otra app que se le pase
+fs.rmSync(path.join(folder, 'resources', 'default_app.asar'), { force: true });
+
+const tar = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'tar.exe');
 execFileSync(tar, ['-a', '-c', '-f', zip, '-C', out, 'Nocta'], { stdio: 'inherit' });
+
+// Huella SHA-256 para publicarla en la Release: así se puede comprobar que el .zip descargado no se ha alterado
+const sha256 = require('node:crypto').createHash('sha256').update(fs.readFileSync(zip)).digest('hex');
+fs.writeFileSync(`${zip}.sha256`, `${sha256}  ${path.basename(zip)}\n`);
 
 const mb = (fs.statSync(zip).size / 1024 / 1024).toFixed(0);
 console.log(`
   ${path.relative(process.cwd(), zip)} (${mb} MB)
+  SHA-256: ${sha256}
 `);

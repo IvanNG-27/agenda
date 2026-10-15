@@ -5,6 +5,10 @@ import { todayISO } from '../lib/dates';
 import { EVENT_KINDS } from '../lib/events';
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Límites de una copia: protegen la pestaña (y la cuota de Firestore al subirla) de archivos desmesurados. */
+export const MAX_BACKUP_BYTES = 5 * 1024 * 1024;
+export const MAX_BACKUP_ITEMS = 20000;
 const COLORS = new Set(PALETTE.map((p) => p.token));
 const KINDS = new Set<string>(EVENT_KINDS.map((k) => k.kind));
 const HOUR = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -41,6 +45,8 @@ export function parseBackup(text: string): State {
   if (!data || typeof data !== 'object' || data.version !== 1 || !Array.isArray(data.tasks)) {
     throw new Error('El archivo no es una copia de Nocta.');
   }
+  const items = ['subjects', 'tasks', 'exams', 'events'].reduce((n, k) => n + (Array.isArray(data[k]) ? (data[k] as unknown[]).length : 0), 0);
+  if (items > MAX_BACKUP_ITEMS) throw new Error(`La copia tiene demasiados elementos (máximo ${MAX_BACKUP_ITEMS}).`);
 
   const base = initialState();
   const subjects = arr(data.subjects).flatMap((s) => cleanSubject(s) ?? []);

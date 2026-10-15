@@ -10,12 +10,15 @@
 // Cada cambio local se aplica al momento en el store y además se escribe en Firestore. Firestore guarda
 // una copia en el dispositivo (IndexedDB), así que sin conexión los cambios esperan y se suben al volver.
 import { initializeApp } from 'firebase/app';
+import { initializeAppCheck, ReCaptchaEnterpriseProvider } from 'firebase/app-check';
 import {
   connectAuthEmulator,
+  deleteUser,
   getAuth,
   getRedirectResult,
   GoogleAuthProvider,
   onAuthStateChanged,
+  reauthenticateWithPopup,
   signInWithCredential,
   signInWithPopup,
   signInWithRedirect,
@@ -25,6 +28,7 @@ import {
   type UserCredential,
 } from 'firebase/auth';
 import {
+  clearIndexedDbPersistence,
   collection,
   connectFirestoreEmulator,
   deleteDoc,
@@ -36,16 +40,17 @@ import {
   persistentLocalCache,
   persistentMultipleTabManager,
   setDoc,
+  terminate,
   writeBatch,
   type DocumentData,
   type DocumentReference,
   type Firestore,
   type SnapshotMetadata,
 } from 'firebase/firestore';
-import { applyRemote, getState, setRemote, type Remote } from '../data/store';
+import { applyRemote, getState, resetLocal, setRemote, type Remote } from '../data/store';
 import { cleanDays, cleanEvent, cleanExam, cleanSubject, cleanTask } from '../data/backup';
 import type { State } from '../data/types';
-import { firebaseConfig, useEmulator } from './config';
+import { appCheckSiteKey, firebaseConfig, useEmulator } from './config';
 import { getSyncStatus, messageFor, setSyncStatus } from './index';
 
 let auth: Auth;
@@ -59,6 +64,10 @@ export function start() {
   if (started) return;
   started = true;
   const app = initializeApp(firebaseConfig);
+  // App Check: Firestore solo acepta peticiones de la app de verdad (no de scripts con la configuración pública)
+  if (!useEmulator && appCheckSiteKey) {
+    initializeAppCheck(app, { provider: new ReCaptchaEnterpriseProvider(appCheckSiteKey), isTokenAutoRefreshEnabled: true });
+  }
   auth = getAuth(app);
   db = initializeFirestore(app, {
     localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
@@ -80,14 +89,19 @@ export function start() {
   // Si el inicio de sesión fue por redirección, la página se ha recargado: los datos locales de antes
   // siguen en el store y se juntan con los de la nube.
   const bootState = getState();
+  const bootOwner = getOwner();
   getRedirectResult(auth)
-    .then((res) => res && mergeOrSignOut(res.user.uid, bootState))
+    .then((res) => res && mergeOrSignOut(res.user.uid, bootState, bootOwner))
     .catch(onError);
 
   onAuthStateChanged(auth, (u) => {
     stop();
     user = u;
-    if (u) listen(u);
+    if (u) {
+      // Una sesión que ya estaba abierta (por ejemplo, de antes de la 1.4.1) es la dueña de los datos locales
+      if (!getOwner()) setOwner(u.uid);
+      listen(u);
+    }
     else setSyncStatus({ phase: 'signed-out', error: getSyncStatus().error });
   });
 
@@ -113,22 +127,96 @@ export async function signIn() {
   }
 }
 
+/**
+ * Cierra la sesión y borra de este dispositivo todo lo de la cuenta: la agenda local y la caché de Firestore.
+ * Los datos siguen en la nube. Sin esto, en un dispositivo compartido la siguiente persona vería la agenda
+ * anterior y, al iniciar sesión, se subiría a su cuenta.
+ */
 export async function signOut() {
   stop();
   user = null;
   await firebaseSignOut(auth);
+  await terminate(db);
+  await clearIndexedDbPersistence(db).catch(() => {}); // otra pestaña abierta la mantiene: se borra al cerrarla
+  resetLocal();
+  setOwner(null);
+  location.reload();
+}
+
+/**
+ * Borra para siempre la cuenta y todo lo que tiene en Firestore, y después limpia este dispositivo
+ * como al cerrar sesión. Google pide haber iniciado sesión hace poco para borrar una cuenta.
+ */
+export async function deleteAccount() {
+  const u = auth.currentUser;
+  if (!u) return;
+  const last = Date.parse(u.metadata.lastSignInTime ?? '') || 0;
+  if (Date.now() - last > 4 * 60_000) await reauthenticateWithPopup(u, new GoogleAuthProvider());
+
+  stop();
+  try {
+    const base = doc(db, 'users', u.uid);
+    const ops: BatchOp[] = [];
+    for (const name of ['tasks', 'exams', 'events', 'subjects']) {
+      const snap = await getDocsFromServer(collection(base, name));
+      snap.docs.forEach((d) => ops.push((b) => b.delete(d.ref)));
+    }
+    ops.push((b) => b.delete(base));
+    await commit(ops);
+    await deleteUser(u);
+  } catch (err) {
+    if (auth.currentUser) listen(auth.currentUser); // no se pudo: la sesión sigue como estaba
+    throw err;
+  }
+  user = null;
+  await terminate(db);
+  await clearIndexedDbPersistence(db).catch(() => {});
+  resetLocal();
+  setOwner(null);
+  location.reload();
+}
+
+/** Cuenta a la que pertenecen los datos guardados en este dispositivo. */
+const OWNER_KEY = 'nocta:cuenta';
+
+function getOwner(): string | null {
+  try {
+    return localStorage.getItem(OWNER_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function setOwner(uid: string | null) {
+  try {
+    if (uid) localStorage.setItem(OWNER_KEY, uid);
+    else localStorage.removeItem(OWNER_KEY);
+  } catch {
+    /* sin almacenamiento no hay datos locales que proteger */
+  }
 }
 
 /** Guarda los datos locales de antes de iniciar sesión y los junta con los de la cuenta. */
 async function signInWith(login: () => Promise<UserCredential>) {
   const local = getState();
+  const owner = getOwner(); // antes de iniciar sesión: después ya apuntaría a la cuenta nueva
   const cred = await login();
-  await mergeOrSignOut(cred.user.uid, local);
+  await mergeOrSignOut(cred.user.uid, local, owner);
 }
 
-async function mergeOrSignOut(uid: string, local: State) {
+async function mergeOrSignOut(uid: string, local: State, owner: string | null) {
   try {
-    await merge(uid, local);
+    if (owner && owner !== uid) {
+      // Los datos de este dispositivo son de otra cuenta: nunca se suben. Se borran y se cargan los de esta.
+      resetLocal();
+      if (auth.currentUser) {
+        stop();
+        listen(auth.currentUser);
+      }
+    } else {
+      await merge(uid, local);
+    }
+    setOwner(uid);
   } catch (err) {
     // Si no se pudieron subir los datos de este dispositivo, se cierra la sesión para poder reintentarlo
     // desde cero; si no, lo que solo estaba aquí no llegaría nunca a la cuenta.

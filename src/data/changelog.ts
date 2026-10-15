@@ -8,6 +8,15 @@ export type Release = { version: string; changes: string[] };
 
 export const CHANGELOG: Release[] = [
   {
+    version: '1.4.1',
+    changes: [
+      'Más privacidad: al cerrar sesión se borra tu agenda de este dispositivo (sigue en tu cuenta) y nunca se mezcla con la de otra persona.',
+      'Puedes borrar tu cuenta y todos tus datos desde Ajustes → Sincronización.',
+      'Nueva página de Privacidad en Ajustes: qué se guarda, dónde y cómo borrarlo.',
+      'Mejoras de seguridad en la web, en la sincronización y en la app de escritorio.',
+    ],
+  },
+  {
     version: '1.4.0',
     changes: [
       'Nuevo: rachas de estudio. En Exámenes, pulsa "He estudiado hoy" debajo de un examen cada día que estudies para él.',

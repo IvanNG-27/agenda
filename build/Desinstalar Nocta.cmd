@@ -14,7 +14,7 @@ echo.
 
 rem Seguridad: solo se borra la carpeta si de verdad es la de Nocta
 if not exist "%DIR%\Nocta.exe" goto :no_es_nocta
-if not exist "%DIR%\resources\app\package.json" goto :no_es_nocta
+if not exist "%DIR%\resources\app.asar" goto :no_es_nocta
 
 "%SystemRoot%\System32\tasklist.exe" /fi "imagename eq Nocta.exe" 2>nul | "%SystemRoot%\System32\find.exe" /i "Nocta.exe" >nul
 if not errorlevel 1 goto :abierta
@@ -34,7 +34,8 @@ choice /c SN /n /m "  ¿Borrar también tus datos? No se puede deshacer. [S/N] "
 set "BORRAR_DATOS=%errorlevel%"
 
 rem Accesos directos del escritorio y del menú Inicio que apunten a esta carpeta
-powershell -NoProfile -Command "$d = '%DIR%'; $s = New-Object -ComObject WScript.Shell; foreach ($f in [Environment]::GetFolderPath('Desktop'), [Environment]::GetFolderPath('Programs')) { Get-ChildItem -LiteralPath $f -Filter *.lnk -ErrorAction SilentlyContinue | Where-Object { $s.CreateShortcut($_.FullName).TargetPath -like ($d + '\*') } | Remove-Item -Force }" >nul 2>&1
+set "NOCTA_DIR=%DIR%"
+powershell -NoProfile -Command "$d = $env:NOCTA_DIR; $s = New-Object -ComObject WScript.Shell; foreach ($f in [Environment]::GetFolderPath('Desktop'), [Environment]::GetFolderPath('Programs')) { Get-ChildItem -LiteralPath $f -Filter *.lnk -ErrorAction SilentlyContinue | Where-Object { $s.CreateShortcut($_.FullName).TargetPath -like ($d + '\*') } | Remove-Item -Force }" >nul 2>&1
 
 if "%BORRAR_DATOS%"=="1" if exist "%DATOS%" rmdir /s /q "%DATOS%"
 

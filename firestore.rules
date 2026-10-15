@@ -1,11 +1,109 @@
 rules_version = '2';
 
-// Cada usuario solo puede leer y escribir sus propios datos (users/{su uid} y lo que hay debajo).
+// Cada usuario solo puede leer y escribir sus propios datos (users/{su uid} y lo que hay debajo),
+// y solo con la forma exacta que usa la app: campos permitidos, tipos, formatos y tamaños.
 // Todo lo demás está cerrado.
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /users/{uid}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+
+    function isOwner(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    // Texto obligatorio de 1 a `max` caracteres
+    function text(v, max) {
+      return v is string && v.size() > 0 && v.size() <= max;
+    }
+
+    // Campo opcional: si está, es texto de hasta `max` caracteres
+    function optText(d, key, max) {
+      return !(key in d) || (d[key] is string && d[key].size() <= max);
+    }
+
+    function isoDate(v) {
+      return v is string && v.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+    }
+
+    // Lista de días estudiados: el contenido lo valida la app; aquí se limita el tamaño
+    function dayList(v) {
+      return v is list && v.size() <= 3660;
+    }
+
+    function validProfile(d) {
+      return d.keys().hasOnly(['userName', 'studyLog'])
+        && (!('userName' in d) || (d.userName is string && d.userName.size() <= 40))
+        && (!('studyLog' in d) || dayList(d.studyLog));
+    }
+
+    function validSubject(d, id) {
+      return d.keys().hasOnly(['id', 'name', 'short', 'color', 'order'])
+        && d.keys().hasAll(['id', 'name', 'short', 'color'])
+        && d.id == id
+        // Pueden quedar vacíos un momento mientras se editan en Ajustes
+        && d.name is string && d.name.size() <= 60
+        && d.short is string && d.short.size() <= 12
+        && d.color is string && d.color.matches('^subj-[a-z]{1,20}$')
+        && (!('order' in d) || (d.order is int && d.order >= 0 && d.order <= 999));
+    }
+
+    function validTask(d, id) {
+      return d.keys().hasOnly(['id', 'title', 'subjectId', 'dueDate', 'done', 'doneAt', 'notes'])
+        && d.keys().hasAll(['id', 'title', 'subjectId', 'dueDate', 'done'])
+        && d.id == id
+        && text(d.title, 120)
+        && text(d.subjectId, 60)
+        && isoDate(d.dueDate)
+        && d.done is bool
+        && (!('doneAt' in d) || isoDate(d.doneAt))
+        && optText(d, 'notes', 2000);
+    }
+
+    function validExam(d, id) {
+      return d.keys().hasOnly(['id', 'title', 'subjectId', 'date', 'time', 'prep', 'studyDays'])
+        && d.keys().hasAll(['id', 'title', 'subjectId', 'date', 'prep'])
+        && d.id == id
+        && text(d.title, 120)
+        && text(d.subjectId, 60)
+        && isoDate(d.date)
+        && optText(d, 'time', 30)
+        && d.prep is number && d.prep >= 0 && d.prep <= 100
+        && (!('studyDays' in d) || dayList(d.studyDays));
+    }
+
+    function validEvent(d, id) {
+      return d.keys().hasOnly(['id', 'title', 'kind', 'date', 'time', 'place', 'notes', 'yearly'])
+        && d.keys().hasAll(['id', 'title', 'kind', 'date'])
+        && d.id == id
+        && text(d.title, 120)
+        && d.kind in ['cumple', 'comida', 'quedada', 'medico', 'importante', 'otro']
+        && isoDate(d.date)
+        && (!('time' in d) || (d.time is string && d.time.matches('^([01][0-9]|2[0-3]):[0-5][0-9]$')))
+        && optText(d, 'place', 120)
+        && optText(d, 'notes', 2000)
+        && (!('yearly' in d) || d.yearly is bool);
+    }
+
+    match /users/{uid} {
+      allow read, delete: if isOwner(uid);
+      allow create, update: if isOwner(uid) && validProfile(request.resource.data);
+
+      match /subjects/{id} {
+        allow read, delete: if isOwner(uid);
+        allow create, update: if isOwner(uid) && validSubject(request.resource.data, id);
+      }
+      match /tasks/{id} {
+        allow read, delete: if isOwner(uid);
+        allow create, update: if isOwner(uid) && validTask(request.resource.data, id);
+      }
+      match /exams/{id} {
+        allow read, delete: if isOwner(uid);
+        allow create, update: if isOwner(uid) && validExam(request.resource.data, id);
+      }
+      match /events/{id} {
+        allow read, delete: if isOwner(uid);
+        allow create, update: if isOwner(uid) && validEvent(request.resource.data, id);
+      }
+      // Cualquier otra colección bajo users/{uid} queda cerrada
     }
   }
 }

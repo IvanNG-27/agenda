@@ -22,7 +22,12 @@ Con sesión iniciada con Google (Ajustes → Sincronización), las tareas, exám
 y se ven en todos los dispositivos. Funciona sin conexión: los cambios se suben al volver.
 
 - Configuración del proyecto: `src/sync/config.ts` (valores de la consola de Firebase; no son secretos).
-- Reglas de seguridad: `firestore.rules` (cada usuario solo accede a `users/{su uid}`). Hay que publicarlas en la consola.
+- Reglas de seguridad: `firestore.rules` (cada usuario solo accede a `users/{su uid}`, y solo con la forma exacta de
+  los datos de la app: campos, tipos y tamaños). Hay que publicarlas en la consola cada vez que cambian.
+- App Check (opcional, recomendado): con la clave de reCAPTCHA Enterprise en `appCheckSiteKey` (`src/sync/config.ts`),
+  Firestore solo acepta peticiones de la app. Después hay que activar la aplicación forzosa en la consola.
+- Al cerrar sesión se borran los datos del dispositivo (siguen en la cuenta), y nunca se suben a una cuenta los datos
+  locales de otra. En Ajustes se puede borrar la cuenta con todos sus datos.
 - Solo en la versión web: la app de escritorio no puede iniciar sesión con Google.
 
 ## App de escritorio (Windows)

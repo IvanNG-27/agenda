@@ -7,6 +7,7 @@ export type Route =
   | { name: 'tablero' }
   | { name: 'examenes' }
   | { name: 'ajustes' }
+  | { name: 'privacidad' }
   | { name: 'asignatura'; id: string };
 
 export type EditorRequest = {
@@ -34,9 +35,16 @@ function parse(hash: string): Route {
     case 'ajustes':
       return { name };
     case 'calendario':
-      return { name, date: arg || undefined };
+      // Solo fechas reales: con una inválida el calendario no tendría día final y se quedaría en bucle
+      return { name, date: arg && /^\d{4}-\d{2}-\d{2}$/.test(arg) && !Number.isNaN(Date.parse(arg)) ? arg : undefined };
     case 'asignatura':
-      return arg ? { name, id: decodeURIComponent(arg) } : { name: 'hoy' };
+      try {
+        return arg ? { name, id: decodeURIComponent(arg) } : { name: 'hoy' };
+      } catch {
+        return { name: 'hoy' }; // "%" mal formado en un enlace: no debe tumbar la app
+      }
+    case 'privacidad':
+      return { name };
     default:
       return { name: 'hoy' };
   }

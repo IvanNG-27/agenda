@@ -16,6 +16,13 @@ Para pasarlos a otro dispositivo usa **Ajustes → Exportar copia / Importar cop
 **¿Ya tenías Nocta?** Borra la carpeta Nocta antigua, o usa el desinstalador conservando tus datos, y extrae la
 nueva en su lugar. Tus datos se conservan. Desde la 1.2.0, la app te avisa sola cuando hay una versión nueva.
 
+**Comprueba que la descarga es la original:** en PowerShell, `Get-FileHash .\Nocta-<versión>-windows.zip` tiene
+que dar exactamente este SHA-256 (sale en `instaladores/<versión>/Nocta-<versión>-windows.zip.sha256`):
+
+```
+<pega aquí el SHA-256>
+```
+
 ### ⚠️ Antes de usarla en Windows 11: Smart App Control
 
 `Nocta.exe` **no está firmado digitalmente**. Si tienes activado **Smart App Control**, Windows lo bloqueará

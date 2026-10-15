@@ -27,12 +27,13 @@ async function latestRelease(): Promise<Update | null> {
     headers: { Accept: 'application/vnd.github+json' },
   });
   if (!res.ok) return null; // 404 = aún no hay ninguna Release
-  const r = (await res.json()) as { tag_name?: string; html_url?: string; assets?: { name: string }[] };
+  const r = (await res.json()) as { tag_name?: string; assets?: { name: string }[] };
   const version = (r.tag_name ?? '').replace(/^v/, '');
   if (!/^\d+\.\d+\.\d+$/.test(version) || compareVersions(version, __APP_VERSION__) <= 0) return null;
   // Una Release sin la app (.zip o .exe; aún subiéndose, o mal hecha) no sirve para actualizar
   if (!r.assets?.some((a) => /\.(zip|exe)$/i.test(a.name))) return null;
-  return { version, url: r.html_url ?? `https://github.com/${REPO}/releases/latest` };
+  // La URL se construye aquí, no se toma de la respuesta: el botón solo puede llevar a la Release oficial
+  return { version, url: `https://github.com/${REPO}/releases/tag/v${version}` };
 }
 
 async function check() {

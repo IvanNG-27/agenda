@@ -65,6 +65,16 @@ export async function signOut() {
   await (await load()).signOut();
 }
 
+/** Borra la cuenta y todos sus datos de la nube (derecho de supresión). */
+export async function deleteAccount() {
+  if (!available) return;
+  try {
+    await (await load()).deleteAccount();
+  } catch (err) {
+    setSyncStatus({ ...status, error: messageFor(err) });
+  }
+}
+
 /** Traduce los errores de Firebase a mensajes útiles en español. */
 export function messageFor(err: unknown): string {
   const code = (err as { code?: string })?.code ?? '';

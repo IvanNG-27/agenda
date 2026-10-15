@@ -9,6 +9,12 @@ const projectConfig = {
   appId: '1:101342059035:web:fcc0e985aa85cbfab8b6be',
 };
 
+/**
+ * Clave de sitio de reCAPTCHA Enterprise para Firebase App Check (consola de Firebase → App Check → Apps → Web).
+ * Con ella, Firestore solo acepta peticiones que vienen de la app y no de scripts sueltos. Vacía = desactivado.
+ */
+export const appCheckSiteKey = '';
+
 /** Build de pruebas contra los emuladores locales de Firebase (VITE_FIREBASE_EMULATOR=1). */
 export const useEmulator = import.meta.env.VITE_FIREBASE_EMULATOR === '1';
 

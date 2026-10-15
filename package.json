@@ -4,7 +4,7 @@
   "description": "Agenda personal de deberes y exámenes",
   "author": "Iván",
   "private": true,
-  "version": "1.4.0",
+  "version": "1.4.1",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
@@ -23,7 +23,7 @@
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
     "@vitejs/plugin-react": "^5.0.0",
-    "electron": "^37.10.3",
+    "electron": "^44.7.2",
     "electron-builder": "^26.15.3",
     "firebase": "^12.19.0",
     "react": "^19.1.0",
@@ -64,6 +64,18 @@
       "icon": "build/icon.png"
     },
     "electronDist": "node_modules/electron/dist",
-    "asar": false
+    "asar": true,
+    "electronFuses": {
+      "runAsNode": false,
+      "enableCookieEncryption": true,
+      "enableNodeOptionsEnvironmentVariable": false,
+      "enableNodeCliInspectArguments": false,
+      "enableEmbeddedAsarIntegrityValidation": true,
+      "onlyLoadAppFromAsar": true
+    }
+  },
+  "overrides": {
+    "@grpc/grpc-js": "^1.14.6",
+    "@electron/get": "^5.1.0"
   }
 }

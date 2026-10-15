@@ -73,6 +73,11 @@ export function applyRemote(patch: Partial<Pick<State, 'userName' | 'subjects' |
   set({ ...state, ...patch });
 }
 
+/** Borra los datos de este dispositivo sin tocar la nube (al cerrar sesión o al entrar otra cuenta). */
+export function resetLocal() {
+  set(initialState());
+}
+
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
 export const actions = {

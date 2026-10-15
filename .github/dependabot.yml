@@ -1,0 +1,13 @@
+# Avisa con un pull request cuando hay actualizaciones (incluidas las de seguridad) de las dependencias
+# de npm y de las acciones de GitHub Actions.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
