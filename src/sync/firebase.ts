@@ -9,7 +9,7 @@
 //
 // Cada cambio local se aplica al momento en el store y además se escribe en Firestore. Firestore guarda
 // una copia en el dispositivo (IndexedDB), así que sin conexión los cambios esperan y se suben al volver.
-import { initializeApp } from 'firebase/app';
+import { initializeApp, type FirebaseApp } from 'firebase/app';
 import { initializeAppCheck, ReCaptchaEnterpriseProvider } from 'firebase/app-check';
 import {
   connectAuthEmulator,
@@ -39,20 +39,25 @@ import {
   onSnapshot,
   persistentLocalCache,
   persistentMultipleTabManager,
+  query,
   setDoc,
   terminate,
+  where,
   writeBatch,
   type DocumentData,
   type DocumentReference,
   type Firestore,
   type SnapshotMetadata,
 } from 'firebase/firestore';
-import { applyRemote, getState, resetLocal, setRemote, type Remote } from '../data/store';
+import { deleteToken, getMessaging, getToken, isSupported } from 'firebase/messaging';
+import { applyRemote, getState, resetLocal, setRemote, subscribeStore, type Remote } from '../data/store';
+import { upcomingReminders } from '../lib/reminders';
 import { cleanDays, cleanEvent, cleanExam, cleanSubject, cleanTask } from '../data/backup';
 import type { State } from '../data/types';
-import { appCheckSiteKey, firebaseConfig, useEmulator } from './config';
+import { appCheckSiteKey, firebaseConfig, useEmulator, vapidKey } from './config';
 import { getSyncStatus, messageFor, setSyncStatus } from './index';
 
+let app: FirebaseApp;
 let auth: Auth;
 let db: Firestore;
 let started = false;
@@ -63,7 +68,7 @@ let meta: Record<string, SnapshotMetadata> = {};
 export function start() {
   if (started) return;
   started = true;
-  const app = initializeApp(firebaseConfig);
+  app = initializeApp(firebaseConfig);
   // App Check: Firestore solo acepta peticiones de la app de verdad (no de scripts con la configuración pública)
   if (!useEmulator && appCheckSiteKey) {
     initializeAppCheck(app, { provider: new ReCaptchaEnterpriseProvider(appCheckSiteKey), isTokenAutoRefreshEnabled: true });
@@ -133,6 +138,7 @@ export async function signIn() {
  * anterior y, al iniciar sesión, se subiría a su cuenta.
  */
 export async function signOut() {
+  await disablePushHere(); // antes de cerrar la sesión: hace falta para borrar el dispositivo de la cuenta
   stop();
   user = null;
   await firebaseSignOut(auth);
@@ -153,14 +159,17 @@ export async function deleteAccount() {
   const last = Date.parse(u.metadata.lastSignInTime ?? '') || 0;
   if (Date.now() - last > 4 * 60_000) await reauthenticateWithPopup(u, new GoogleAuthProvider());
 
+  await disablePushHere();
   stop();
   try {
     const base = doc(db, 'users', u.uid);
     const ops: BatchOp[] = [];
-    for (const name of ['tasks', 'exams', 'events', 'subjects']) {
+    for (const name of ['tasks', 'exams', 'events', 'subjects', 'devices']) {
       const snap = await getDocsFromServer(collection(base, name));
       snap.docs.forEach((d) => ops.push((b) => b.delete(d.ref)));
     }
+    const reminders = await getDocsFromServer(query(collection(db, 'reminders'), where('uid', '==', u.uid)));
+    reminders.docs.forEach((d) => ops.push((b) => b.delete(d.ref)));
     ops.push((b) => b.delete(base));
     await commit(ops);
     await deleteUser(u);
@@ -318,13 +327,127 @@ function listen(u: User) {
       },
       onError,
     ),
+    onSnapshot(
+      query(collection(db, 'reminders'), where('uid', '==', u.uid)),
+      (snap) => {
+        remoteReminders = new Map(snap.docs.map((d) => [d.id, d.data()]));
+        remindersLoaded = !snap.metadata.fromCache;
+        scheduleReminderSync(u.uid);
+      },
+      onError,
+    ),
+    subscribeStore(() => scheduleReminderSync(u.uid)),
   );
+  void refreshPush();
+}
+
+// ---------- Recordatorios con la app cerrada ----------
+//
+// Cada recordatorio pendiente se guarda en reminders/{uid}_{clave} con su instante absoluto. Un proceso programado
+// (scripts/reminders/send.mjs, en GitHub Actions) envía cada pocos minutos los que han vencido a los dispositivos
+// de users/{uid}/devices por Firebase Cloud Messaging, y los borra (o pasa al año siguiente si son anuales).
+
+let remoteReminders = new Map<string, DocumentData>();
+let remindersLoaded = false;
+let reminderTimer: ReturnType<typeof setTimeout> | undefined;
+
+function scheduleReminderSync(uid: string) {
+  clearTimeout(reminderTimer);
+  reminderTimer = setTimeout(() => void syncReminders(uid).catch(onError), 1500);
+}
+
+/** Deja en la nube exactamente los recordatorios pendientes de los datos actuales. */
+async function syncReminders(uid: string) {
+  if (!remindersLoaded || user?.uid !== uid) return; // sin la lista real de la nube no se borra nada
+  // Los vencidos hace menos de 20 min se mantienen: el envío programado puede ir unos minutos tarde
+  const desired = upcomingReminders(getState(), Date.now() - 20 * 60_000);
+  const want = new Map(desired.map((r) => [`${uid}_${r.key}`, r]));
+  const ops: BatchOp[] = [];
+  for (const [id, r] of want) {
+    const cur = remoteReminders.get(id);
+    const data = { uid, item: r.key, at: r.at, title: r.title.slice(0, 150), body: r.body.slice(0, 280), ...(r.yearly ? { yearly: true } : {}) };
+    if (!cur || cur.at !== data.at || cur.title !== data.title || cur.body !== data.body || !!cur.yearly !== r.yearly) {
+      ops.push((b) => b.set(doc(db, 'reminders', id), data));
+    }
+  }
+  for (const id of remoteReminders.keys()) {
+    if (!want.has(id)) ops.push((b) => b.delete(doc(db, 'reminders', id)));
+  }
+  if (ops.length) await commit(ops);
+}
+
+/** Dispositivo de este navegador registrado para recibir push (id del documento en users/{uid}/devices). */
+const PUSH_KEY = 'nocta:push';
+
+export function pushEnabledHere(): boolean {
+  try {
+    return !!localStorage.getItem(PUSH_KEY);
+  } catch {
+    return false;
+  }
+}
+
+async function deviceId(token: string): Promise<string> {
+  const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token));
+  return [...new Uint8Array(hash)].slice(0, 16).map((x) => x.toString(16).padStart(2, '0')).join('');
+}
+
+function platformName(): string {
+  const ua = navigator.userAgent;
+  return /Android/i.test(ua) ? 'android' : /iPhone|iPad/i.test(ua) ? 'ios' : /Windows/i.test(ua) ? 'windows' : /Mac/i.test(ua) ? 'mac' : 'otro';
+}
+
+/**
+ * Registra este navegador para recibir los recordatorios por push. Devuelve null si lo consigue o el motivo:
+ * 'sin-sesion', 'sin-clave' (falta vapidKey) o 'no-compatible' (p. ej. Safari de iPhone sin instalar la app).
+ */
+export async function enablePush(): Promise<string | null> {
+  if (!user) return 'sin-sesion';
+  if (!vapidKey || useEmulator) return 'sin-clave';
+  if (!('serviceWorker' in navigator) || !(await isSupported())) return 'no-compatible';
+  const reg = await navigator.serviceWorker.ready;
+  const token = await getToken(getMessaging(app), { vapidKey, serviceWorkerRegistration: reg });
+  const id = await deviceId(token);
+  await setDoc(doc(db, 'users', user.uid, 'devices', id), { token, platform: platformName(), updatedAt: Date.now() });
+  let old: string | null = null;
+  try {
+    old = localStorage.getItem(PUSH_KEY);
+    localStorage.setItem(PUSH_KEY, id);
+  } catch {
+    /* sin almacenamiento se registra igual, pero no se recordará */
+  }
+  // El token cambia de vez en cuando: el dispositivo antiguo ya no sirve
+  if (old && old !== id) await deleteDoc(doc(db, 'users', user.uid, 'devices', old)).catch(() => {});
+  return null;
+}
+
+/** Al abrir la app con sesión: renueva el token si este navegador ya recibía push. */
+async function refreshPush() {
+  if (!pushEnabledHere() || typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+  await enablePush().catch(() => {});
+}
+
+/** Este navegador deja de recibir push (al cerrar sesión o borrar la cuenta). */
+async function disablePushHere() {
+  let id: string | null = null;
+  try {
+    id = localStorage.getItem(PUSH_KEY);
+    localStorage.removeItem(PUSH_KEY);
+  } catch {
+    return;
+  }
+  if (!id) return;
+  if (user) await deleteDoc(doc(db, 'users', user.uid, 'devices', id)).catch(() => {});
+  if (!useEmulator && vapidKey) await deleteToken(getMessaging(app)).catch(() => {});
 }
 
 function stop() {
   unsubs.forEach((u) => u());
   unsubs = [];
   meta = {};
+  clearTimeout(reminderTimer);
+  remoteReminders = new Map();
+  remindersLoaded = false;
   setRemote(null);
 }
 

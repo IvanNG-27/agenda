@@ -29,6 +29,32 @@ service cloud.firestore {
       return v is list && v.size() <= 3660;
     }
 
+    // Recordatorios de un elemento: hasta 3 (minutos respecto a su inicio, ver src/lib/reminders.ts)
+    function reminderList(d) {
+      return !('reminders' in d) || (d.reminders is list && d.reminders.size() <= 3);
+    }
+
+    // Recordatorio pendiente en la nube: lo envía por push scripts/reminders/send.mjs cuando vence
+    function validReminder(d, id) {
+      return d.keys().hasOnly(['uid', 'item', 'at', 'title', 'body', 'yearly'])
+        && d.keys().hasAll(['uid', 'item', 'at', 'title'])
+        && d.uid == request.auth.uid
+        && id == request.auth.uid + '_' + d.item
+        && d.item is string && d.item.matches('^[A-Za-z0-9_-]{1,140}$')
+        && d.at is int
+        && text(d.title, 150)
+        && optText(d, 'body', 280)
+        && (!('yearly' in d) || d.yearly is bool);
+    }
+
+    // Navegador registrado para recibir push (el token de Firebase Cloud Messaging)
+    function validDevice(d) {
+      return d.keys().hasOnly(['token', 'platform', 'updatedAt'])
+        && text(d.token, 4096)
+        && optText(d, 'platform', 20)
+        && d.updatedAt is int;
+    }
+
     function validProfile(d) {
       return d.keys().hasOnly(['userName', 'studyLog'])
         && (!('userName' in d) || (d.userName is string && d.userName.size() <= 40))
@@ -47,7 +73,7 @@ service cloud.firestore {
     }
 
     function validTask(d, id) {
-      return d.keys().hasOnly(['id', 'title', 'subjectId', 'dueDate', 'done', 'doneAt', 'notes'])
+      return d.keys().hasOnly(['id', 'title', 'subjectId', 'dueDate', 'done', 'doneAt', 'notes', 'reminders'])
         && d.keys().hasAll(['id', 'title', 'subjectId', 'dueDate', 'done'])
         && d.id == id
         && text(d.title, 120)
@@ -55,11 +81,12 @@ service cloud.firestore {
         && isoDate(d.dueDate)
         && d.done is bool
         && (!('doneAt' in d) || isoDate(d.doneAt))
-        && optText(d, 'notes', 2000);
+        && optText(d, 'notes', 2000)
+        && reminderList(d);
     }
 
     function validExam(d, id) {
-      return d.keys().hasOnly(['id', 'title', 'subjectId', 'date', 'time', 'prep', 'studyDays'])
+      return d.keys().hasOnly(['id', 'title', 'subjectId', 'date', 'time', 'prep', 'studyDays', 'reminders'])
         && d.keys().hasAll(['id', 'title', 'subjectId', 'date', 'prep'])
         && d.id == id
         && text(d.title, 120)
@@ -67,11 +94,12 @@ service cloud.firestore {
         && isoDate(d.date)
         && optText(d, 'time', 30)
         && d.prep is number && d.prep >= 0 && d.prep <= 100
-        && (!('studyDays' in d) || dayList(d.studyDays));
+        && (!('studyDays' in d) || dayList(d.studyDays))
+        && reminderList(d);
     }
 
     function validEvent(d, id) {
-      return d.keys().hasOnly(['id', 'title', 'kind', 'date', 'time', 'place', 'notes', 'yearly'])
+      return d.keys().hasOnly(['id', 'title', 'kind', 'date', 'time', 'place', 'notes', 'yearly', 'reminders'])
         && d.keys().hasAll(['id', 'title', 'kind', 'date'])
         && d.id == id
         && text(d.title, 120)
@@ -80,7 +108,8 @@ service cloud.firestore {
         && (!('time' in d) || (d.time is string && d.time.matches('^([01][0-9]|2[0-3]):[0-5][0-9]$')))
         && optText(d, 'place', 120)
         && optText(d, 'notes', 2000)
-        && (!('yearly' in d) || d.yearly is bool);
+        && (!('yearly' in d) || d.yearly is bool)
+        && reminderList(d);
     }
 
     match /users/{uid} {
@@ -103,7 +132,19 @@ service cloud.firestore {
         allow read, delete: if isOwner(uid);
         allow create, update: if isOwner(uid) && validEvent(request.resource.data, id);
       }
+      match /devices/{id} {
+        allow read, delete: if isOwner(uid);
+        allow create, update: if isOwner(uid) && validDevice(request.resource.data);
+      }
       // Cualquier otra colección bajo users/{uid} queda cerrada
+    }
+
+    // Recordatorios: colección única para que el envío programado los busque por fecha sin índices especiales.
+    // Cada documento solo lo ve y lo toca su dueño (campo uid), y su id empieza por ese uid.
+    match /reminders/{id} {
+      allow read, delete: if request.auth != null && resource.data.uid == request.auth.uid;
+      allow create: if request.auth != null && validReminder(request.resource.data, id);
+      allow update: if request.auth != null && resource.data.uid == request.auth.uid && validReminder(request.resource.data, id);
     }
   }
 }

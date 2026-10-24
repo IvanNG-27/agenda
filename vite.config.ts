@@ -90,6 +90,8 @@ export default defineConfig(({ mode, command }) => {
           },
           workbox: {
             globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+            // Recordatorios por push con la app cerrada (public/push-sw.js)
+            importScripts: ['push-sw.js'],
           },
         }),
     ],

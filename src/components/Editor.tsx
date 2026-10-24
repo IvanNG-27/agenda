@@ -3,6 +3,8 @@ import type { EventKind, State } from '../data/types';
 import { actions } from '../data/store';
 import { addDays } from '../lib/dates';
 import { EVENT_KINDS, kindInfo } from '../lib/events';
+import { cleanReminders, MAX_REMINDERS, optionsFor } from '../lib/reminders';
+import { useNotify } from '../notify';
 import { useModal, type EditorRequest } from '../ui';
 import { SubjectChip } from './SubjectChip';
 import { Icon } from './Icons';
@@ -44,7 +46,9 @@ export function Editor({ req, state, today, desktop, onClose }: Props) {
   const [place, setPlace] = useState(event?.place ?? '');
   const [yearly, setYearly] = useState(event ? !!event.yearly : true);
   const [yearlyTouched, setYearlyTouched] = useState(!!event);
+  const [reminders, setReminders] = useState<number[]>(task?.reminders ?? exam?.reminders ?? event?.reminders ?? []);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const notify = useNotify();
   const titleRef = useRef<HTMLInputElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
 
@@ -62,16 +66,23 @@ export function Editor({ req, state, today, desktop, onClose }: Props) {
   const valid =
     title.trim() !== '' && /^\d{4}-\d{2}-\d{2}$/.test(date) && (kind === 'event' || subjectId !== '');
 
+  // Con hora (eventos con hora) los avisos son "X antes"; si es de todo el día, a una hora fija de ese día o de antes
+  const timed = kind === 'event' && eventTime !== '';
+  const reminderOptions = optionsFor(timed);
+  const chosen = cleanReminders(reminders, timed) ?? [];
+  const toggleReminder = (m: number) =>
+    setReminders(chosen.includes(m) ? chosen.filter((x) => x !== m) : chosen.length < MAX_REMINDERS ? [...chosen, m] : chosen);
+
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (!valid) return;
     const t = title.trim();
     if (kind === 'task') {
-      const data = { title: t, subjectId, dueDate: date, notes: notes.trim() || undefined };
+      const data = { title: t, subjectId, dueDate: date, notes: notes.trim() || undefined, reminders: cleanReminders(chosen, false) };
       if (task) actions.updateTask(task.id, data);
       else actions.addTask(data);
     } else if (kind === 'exam') {
-      const data = { title: t, subjectId, date, time: time.trim() || undefined, prep };
+      const data = { title: t, subjectId, date, time: time.trim() || undefined, prep, reminders: cleanReminders(chosen, false) };
       if (exam) actions.updateExam(exam.id, data);
       else actions.addExam(data);
     } else {
@@ -83,6 +94,7 @@ export function Editor({ req, state, today, desktop, onClose }: Props) {
         place: place.trim() || undefined,
         notes: notes.trim() || undefined,
         yearly: yearly || undefined,
+        reminders: cleanReminders(chosen, timed),
       };
       if (event) actions.updateEvent(event.id, data);
       else actions.addEvent(data);
@@ -266,6 +278,37 @@ export function Editor({ req, state, today, desktop, onClose }: Props) {
               />
             </label>
           )}
+
+          <fieldset className="field">
+            <legend className="field__label">Recordatorio{chosen.length ? ` · ${chosen.length}` : ''}</legend>
+            <div className="chips" role="group" aria-label="Recordatorio">
+              {reminderOptions.map((o) => {
+                const on = chosen.includes(o.minutes);
+                return (
+                  <button
+                    key={o.minutes}
+                    type="button"
+                    className={`chip${on ? ' chip--solid' : ''}`}
+                    style={on ? { background: 'var(--accent)' } : undefined}
+                    aria-pressed={on}
+                    disabled={!on && chosen.length >= MAX_REMINDERS}
+                    onClick={() => toggleReminder(o.minutes)}
+                  >
+                    <span className="chip__text">{o.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {chosen.length > 0 && notify.state !== 'push' && notify.state !== 'local' && (
+              <p className="field__hint">
+                {notify.state === 'blocked'
+                  ? 'Las notificaciones están bloqueadas en este navegador: actívalas en la configuración del sitio.'
+                  : notify.state === 'unsupported'
+                    ? 'Este navegador no puede mostrar notificaciones.'
+                    : 'Para recibirlo, activa las notificaciones en Ajustes.'}
+              </p>
+            )}
+          </fieldset>
 
           <div className="form__actions">
             {editing && (

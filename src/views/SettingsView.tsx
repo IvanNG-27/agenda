@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import type { State } from '../data/types';
 import { actions } from '../data/store';
 import { downloadBackup, MAX_BACKUP_BYTES, parseBackup } from '../data/backup';
@@ -13,6 +13,7 @@ import { isDesktopApp } from '../sync/config';
 import { releasesBetween } from '../data/changelog';
 import { WhatsNew } from '../components/WhatsNew';
 import { useUpdate } from '../updates';
+import { enableNotifications, testNotification, upgradeToPush, useNotify } from '../notify';
 
 type Props = { state: State; desktop: boolean };
 
@@ -28,6 +29,8 @@ export function SettingsView({ state, desktop }: Props) {
       <PageHeader title="Ajustes" />
 
       <SyncSection />
+
+      <NotificationsSection />
 
       <section>
         <SectionHeader>Tu nombre</SectionHeader>
@@ -267,6 +270,72 @@ const STATUS_TEXT: Partial<Record<SyncStatus['phase'], string>> = {
   pending: 'Guardando cambios…',
   offline: 'Sin conexión. Lo que cambies se subirá al volver.',
 };
+
+function NotificationsSection() {
+  const notify = useNotify();
+  const sync = useSync();
+  const signedInNow = signedIn(sync);
+  const [atLogin, setAtLogin] = useState<boolean | null>(null);
+
+  // Al iniciar sesión con el permiso ya concedido, se intenta pasar a avisos con la app cerrada
+  useEffect(() => {
+    if (signedInNow && notify.state === 'local') void upgradeToPush();
+  }, [signedInNow, notify.state]);
+
+  useEffect(() => {
+    void window.noctaDesktop?.getOpenAtLogin().then(setAtLogin);
+  }, []);
+
+  const toggleAtLogin = async () => {
+    if (!window.noctaDesktop) return;
+    setAtLogin(await window.noctaDesktop.setOpenAtLogin(!atLogin));
+  };
+
+  let text: string;
+  if (isDesktopApp) {
+    text =
+      'Los recordatorios te avisan con notificaciones de Windows. Al cerrar la ventana, Nocta sigue junto al reloj para poder avisarte; para salir del todo, usa su icono.';
+  } else if (notify.state === 'push') {
+    text = 'Activadas: los recordatorios te llegarán aunque Nocta esté cerrada.';
+  } else if (notify.state === 'local') {
+    text = notify.note ?? 'Activadas mientras Nocta esté abierta.';
+  } else if (notify.state === 'blocked') {
+    text = 'Están bloqueadas en este navegador. Actívalas en la configuración del sitio (el candado junto a la dirección).';
+  } else if (notify.state === 'unsupported') {
+    text = 'Este navegador no puede mostrar notificaciones.';
+  } else {
+    text = 'Elige un recordatorio al añadir una tarea, un examen o un evento, y Nocta te avisará con una notificación.';
+  }
+
+  return (
+    <section>
+      <SectionHeader>Notificaciones</SectionHeader>
+      <div className="backup">
+        <p className="backup__text">{text}</p>
+        <div className="backup__actions">
+          {notify.state === 'off' && (
+            <button type="button" className="btn" onClick={() => void enableNotifications()}>
+              Activar notificaciones
+            </button>
+          )}
+          {(notify.state === 'local' || notify.state === 'push') && (
+            <button type="button" className="btn btn--secondary" onClick={testNotification}>
+              Probar
+            </button>
+          )}
+        </div>
+        {isDesktopApp && atLogin !== null && (
+          <label className="check-row">
+            <button type="button" className="checkbox" role="checkbox" aria-checked={atLogin} onClick={() => void toggleAtLogin()}>
+              {atLogin && <Icon name="check" size={16} />}
+            </button>
+            <span>Abrir Nocta al iniciar Windows (para que avise aunque no la abras)</span>
+          </label>
+        )}
+      </div>
+    </section>
+  );
+}
 
 function SyncSection() {
   const sync = useSync();

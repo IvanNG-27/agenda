@@ -8,6 +8,14 @@ export type Release = { version: string; changes: string[] };
 
 export const CHANGELOG: Release[] = [
   {
+    version: '1.5.0',
+    changes: [
+      'Nuevo: recordatorios. Al añadir una tarea, un examen o un evento, elige cuándo quieres que Nocta te avise (hasta 3 avisos).',
+      'Activa las notificaciones en Ajustes → Notificaciones. Con la sesión iniciada te llegan aunque Nocta esté cerrada; en iPhone, añade antes Nocta a la pantalla de inicio.',
+      'App de escritorio: al cerrar la ventana, Nocta se queda junto al reloj para avisarte. Puedes hacer que se abra sola al iniciar Windows.',
+    ],
+  },
+  {
     version: '1.4.1',
     changes: [
       'Más privacidad: al cerrar sesión se borra tu agenda de este dispositivo (sigue en tu cuenta) y nunca se mezcla con la de otra persona.',

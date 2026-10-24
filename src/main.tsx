@@ -4,6 +4,7 @@ import { registerSW } from 'virtual:pwa-register';
 import App from './App';
 import { startSync } from './sync';
 import { startUpdateChecks } from './updates';
+import { startNotifications } from './notify';
 import '@fontsource/inter/latin-400.css';
 import '@fontsource/inter/latin-500.css';
 import '@fontsource/inter/latin-600.css';
@@ -43,4 +44,5 @@ if (framed) {
 
   startSync();
   startUpdateChecks();
+  startNotifications();
 }

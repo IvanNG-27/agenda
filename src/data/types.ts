@@ -13,6 +13,8 @@ export type Task = {
   done: boolean;
   doneAt?: string; // ISO yyyy-mm-dd
   notes?: string;
+  /** Recordatorios: minutos respecto al inicio (la hora, o las 00:00 si es de todo el día). Ver lib/reminders.ts */
+  reminders?: number[];
 };
 
 export type Exam = {
@@ -24,6 +26,8 @@ export type Exam = {
   prep: number; // 0–100, % de repaso
   /** Días (ISO) en los que se marcó "He estudiado hoy" para este examen */
   studyDays?: string[];
+  /** Recordatorios: minutos respecto al inicio (la hora, o las 00:00 si es de todo el día). Ver lib/reminders.ts */
+  reminders?: number[];
 };
 
 export type EventKind = 'cumple' | 'comida' | 'quedada' | 'medico' | 'importante' | 'otro';
@@ -39,6 +43,8 @@ export type AgendaEvent = {
   notes?: string;
   /** Se repite cada año el mismo día (cumpleaños, aniversarios…) */
   yearly?: boolean;
+  /** Recordatorios: minutos respecto al inicio (la hora, o las 00:00 si es de todo el día). Ver lib/reminders.ts */
+  reminders?: number[];
 };
 
 export type State = {

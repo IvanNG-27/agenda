@@ -33,6 +33,11 @@ export function PrivacyView({ desktop }: { desktop: boolean }) {
           Con nadie más. Nocta no tiene publicidad, analítica ni cookies de seguimiento. Los únicos proveedores son Google
           (inicio de sesión y base de datos, solo si inicias sesión) y GitHub (aloja la web y las descargas).
         </p>
+        <p>
+          Si activas las notificaciones con la sesión iniciada, el título y la fecha de cada recordatorio pendiente se
+          guardan en tu cuenta y se envían a tus dispositivos a través de Firebase Cloud Messaging (Google) y de un proceso
+          automático de GitHub. Se borran en cuanto se envían. Al cerrar sesión, ese dispositivo deja de recibirlos.
+        </p>
 
         <SectionHeader>Tus derechos</SectionHeader>
         <ul>

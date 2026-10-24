@@ -65,6 +65,20 @@ export async function signOut() {
   await (await load()).signOut();
 }
 
+/**
+ * Registra este navegador para recibir los recordatorios por push (con la app cerrada).
+ * Devuelve null si lo consigue o el motivo: 'sin-sesion', 'sin-clave', 'no-compatible' o 'error'.
+ */
+export async function enablePush(): Promise<string | null> {
+  if (!available || !status.email) return 'sin-sesion';
+  try {
+    return await (await load()).enablePush();
+  } catch (err) {
+    setSyncStatus({ ...status, error: messageFor(err) });
+    return 'error';
+  }
+}
+
 /** Borra la cuenta y todos sus datos de la nube (derecho de supresión). */
 export async function deleteAccount() {
   if (!available) return;

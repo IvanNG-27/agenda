@@ -46,6 +46,8 @@ const subscribe = (l: () => void) => {
 };
 
 export const useStore = () => useSyncExternalStore(subscribe, () => state);
+/** Para módulos fuera de React (recordatorios): avisa en cada cambio de datos. */
+export const subscribeStore = subscribe;
 export const getState = () => state;
 
 /** Destino de los cambios en la nube (Firebase) mientras hay sesión iniciada. */

@@ -1908,3 +1908,15 @@ label.field .field__label {
 .privacy strong {
   color: var(--ink);
 }
+
+/* Texto de ayuda bajo un campo */
+.field__hint {
+  margin: var(--space-2) 0 0;
+  font: var(--t-caption);
+  color: var(--ink-muted);
+}
+
+.chip:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

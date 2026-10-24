@@ -30,6 +30,8 @@ jobs:
           node-version: 22
       # Falla si aparece cualquier vulnerabilidad conocida en las dependencias
       - run: npm audit --audit-level=low
+      - run: npm audit --audit-level=low
+        working-directory: scripts/reminders
 
   build:
     needs: security

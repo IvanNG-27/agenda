@@ -30,6 +30,30 @@ y se ven en todos los dispositivos. Funciona sin conexión: los cambios se suben
   locales de otra. En Ajustes se puede borrar la cuenta con todos sus datos.
 - Solo en la versión web: la app de escritorio no puede iniciar sesión con Google.
 
+## Recordatorios y notificaciones
+
+Cada tarea, examen o evento puede llevar hasta 3 recordatorios (`src/lib/reminders.ts`). Cómo llegan:
+
+- **Web con sesión iniciada (push, también con la app cerrada):** la app guarda los recordatorios pendientes en
+  `reminders/{uid}_{clave}` y registra el navegador en `users/{uid}/devices`. El workflow
+  `.github/workflows/recordatorios.yml` ejecuta cada 5 minutos `scripts/reminders/send.mjs`, que envía los vencidos con
+  Firebase Cloud Messaging y los borra (los anuales pasan al año siguiente). `public/push-sw.js` los muestra.
+- **Web sin sesión, o sin push:** la propia app avisa mientras está abierta.
+- **App de escritorio:** avisa con notificaciones de Windows; al cerrar la ventana sigue junto al reloj, y puede abrirse
+  sola al iniciar Windows. Crea un acceso en el menú Inicio porque Windows lo exige para mostrar sus notificaciones.
+
+Para activar el push hay que hacer dos cosas una sola vez:
+
+1. **Clave VAPID:** consola de Firebase → Configuración del proyecto → Cloud Messaging → Certificados push web →
+   *Generar par de claves*. Copia la clave pública en `vapidKey` (`src/sync/config.ts`).
+2. **Cuenta de servicio para el envío:** consola de Firebase → Configuración del proyecto → Cuentas de servicio →
+   *Generar nueva clave privada*. Copia el contenido del `.json` en GitHub → Settings → Secrets and variables →
+   Actions → *New repository secret* con el nombre `FIREBASE_SERVICE_ACCOUNT`, y borra el `.json` de tu ordenador.
+   Nunca lo subas al repositorio (`.gitignore` ya excluye `serviceAccount*.json` y `credentials*.json`).
+
+GitHub pausa los workflows programados de un repositorio sin actividad durante 60 días: si pasa, reactívalo en la
+pestaña Actions.
+
 ## App de escritorio (Windows)
 
 ```bash

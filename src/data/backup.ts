@@ -3,6 +3,7 @@ import type { AgendaEvent, Exam, State, Subject, Task } from './types';
 import { initialState, PALETTE } from './defaults';
 import { todayISO } from '../lib/dates';
 import { EVENT_KINDS } from '../lib/events';
+import { cleanReminders } from '../lib/reminders';
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -84,7 +85,7 @@ export function cleanTask(t: Record<string, unknown>): Task | null {
   if (!id || !title || !subjectId || !dueDate) return null;
   const done = t.done === true;
   const doneAt = done && typeof t.doneAt === 'string' && ISO.test(t.doneAt) ? t.doneAt : undefined;
-  return { id, title, subjectId, dueDate, done, doneAt, notes: str(t.notes, 2000) };
+  return { id, title, subjectId, dueDate, done, doneAt, notes: str(t.notes, 2000), reminders: cleanReminders(t.reminders, false) };
 }
 
 export function cleanExam(e: Record<string, unknown>): Exam | null {
@@ -95,7 +96,11 @@ export function cleanExam(e: Record<string, unknown>): Exam | null {
   if (!id || !title || !subjectId || !date) return null;
   const prep = typeof e.prep === 'number' && Number.isFinite(e.prep) ? Math.min(100, Math.max(0, Math.round(e.prep))) : 0;
   const studyDays = cleanDays(e.studyDays);
-  return { id, title, subjectId, date, time: str(e.time, 30), prep, studyDays: studyDays.length ? studyDays : undefined };
+  return {
+    id, title, subjectId, date, time: str(e.time, 30), prep,
+    studyDays: studyDays.length ? studyDays : undefined,
+    reminders: cleanReminders(e.reminders, false),
+  };
 }
 
 /** Lista de días ISO sin repetidos y ordenada (rachas de estudio). */
@@ -111,5 +116,11 @@ export function cleanEvent(e: Record<string, unknown>): AgendaEvent | null {
   if (!id || !title || !date) return null;
   const kind = typeof e.kind === 'string' && KINDS.has(e.kind) ? (e.kind as AgendaEvent['kind']) : 'otro';
   const time = typeof e.time === 'string' && HOUR.test(e.time) ? e.time : undefined;
-  return { id, title, kind, date, time, place: str(e.place, 120), notes: str(e.notes, 2000), yearly: e.yearly === true || undefined };
+  return {
+    id, title, kind, date, time,
+    place: str(e.place, 120),
+    notes: str(e.notes, 2000),
+    yearly: e.yearly === true || undefined,
+    reminders: cleanReminders(e.reminders, !!time),
+  };
 }

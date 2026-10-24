@@ -15,6 +15,13 @@ const projectConfig = {
  */
 export const appCheckSiteKey = '';
 
+/**
+ * Clave pública VAPID de Firebase Cloud Messaging (consola de Firebase → Configuración del proyecto → Cloud Messaging →
+ * Certificados push web → Generar par de claves). Con ella, los recordatorios llegan aunque Nocta esté cerrada.
+ * Vacía = solo avisa la propia app mientras está abierta. No es secreta.
+ */
+export const vapidKey = '';
+
 /** Build de pruebas contra los emuladores locales de Firebase (VITE_FIREBASE_EMULATOR=1). */
 export const useEmulator = import.meta.env.VITE_FIREBASE_EMULATOR === '1';
 

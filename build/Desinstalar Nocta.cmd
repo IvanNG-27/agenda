@@ -37,6 +37,10 @@ rem Accesos directos del escritorio y del menú Inicio que apunten a esta carpet
 set "NOCTA_DIR=%DIR%"
 powershell -NoProfile -Command "$d = $env:NOCTA_DIR; $s = New-Object -ComObject WScript.Shell; foreach ($f in [Environment]::GetFolderPath('Desktop'), [Environment]::GetFolderPath('Programs')) { Get-ChildItem -LiteralPath $f -Filter *.lnk -ErrorAction SilentlyContinue | Where-Object { $s.CreateShortcut($_.FullName).TargetPath -like ($d + '\*') } | Remove-Item -Force }" >nul 2>&1
 
+rem Que no se abra sola al iniciar Windows (opción "Abrir Nocta al iniciar Windows")
+reg delete "HKCU\Software\Microsoft\Windows\CurrentVersion\Run" /v Nocta /f >nul 2>&1
+reg delete "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run" /v Nocta /f >nul 2>&1
+
 if "%BORRAR_DATOS%"=="1" if exist "%DATOS%" rmdir /s /q "%DATOS%"
 
 echo.
@@ -56,7 +60,8 @@ pause
 exit /b 1
 
 :abierta
-echo   Nocta está abierta. Ciérrala y vuelve a ejecutar este archivo.
+echo   Nocta está abierta. Sal de ella desde su icono junto al reloj ^(clic derecho, Salir^)
+echo   y vuelve a ejecutar este archivo.
 echo.
 pause
 exit /b 1
