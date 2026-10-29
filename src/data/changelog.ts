@@ -8,6 +8,13 @@ export type Release = { version: string; changes: string[] };
 
 export const CHANGELOG: Release[] = [
   {
+    version: '1.6.0',
+    changes: [
+      '🎃 Cada año, del 26 de octubre al 1 de noviembre, Nocta se disfraza de Halloween: arañas, calabazas, fantasmas, murciélagos y algo de sangre. El 2 de noviembre vuelve a ser la de siempre.',
+      'Si prefieres no verlo, puedes quitar la decoración ese año en Ajustes → Halloween.',
+    ],
+  },
+  {
     version: '1.5.0',
     changes: [
       'Nuevo: recordatorios. Al añadir una tarea, un examen o un evento, elige cuándo quieres que Nocta te avise (hasta 3 avisos).',

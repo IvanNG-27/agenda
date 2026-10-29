@@ -4,6 +4,8 @@ import { Sidebar, TabBar } from './components/Navigation';
 import { Editor } from './components/Editor';
 import { markReleasesSeen, pendingReleases, WhatsNew } from './components/WhatsNew';
 import { UpdateNotice } from './components/UpdateNotice';
+import { HalloweenDecor, useSeasonTheme } from './components/Halloween';
+import { useHalloween } from './lib/season';
 import { HoyView } from './views/HoyView';
 import { SemanaView } from './views/SemanaView';
 import { CalendarView } from './views/CalendarView';
@@ -17,6 +19,9 @@ import { UIContext, useMediaQuery, useRoute, type EditorRequest } from './ui';
 export default function App() {
   const state = useStore();
   const today = useToday();
+  // Semana de Halloween (26 oct – 1 nov): Nocta se disfraza; el 2 de noviembre vuelve a ser la de siempre
+  const halloween = useHalloween(today) === 'on';
+  useSeasonTheme(halloween);
   const route = useRoute();
   const desktop = useMediaQuery('(min-width: 900px)');
   const [editor, setEditor] = useState<EditorRequest | null>(null);
@@ -102,6 +107,7 @@ export default function App() {
         />
       )}
       <UpdateNotice />
+      {halloween && <HalloweenDecor />}
       {news.length > 0 && !editor && (
         <WhatsNew title="Nocta se ha actualizado" releases={news} onClose={closeNews} />
       )}

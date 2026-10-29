@@ -14,6 +14,8 @@ import { releasesBetween } from '../data/changelog';
 import { WhatsNew } from '../components/WhatsNew';
 import { useUpdate } from '../updates';
 import { enableNotifications, testNotification, upgradeToPush, useNotify } from '../notify';
+import { useToday } from '../data/store';
+import { setHalloweenOff, useHalloween } from '../lib/season';
 
 type Props = { state: State; desktop: boolean };
 
@@ -31,6 +33,8 @@ export function SettingsView({ state, desktop }: Props) {
       <SyncSection />
 
       <NotificationsSection />
+
+      <HalloweenSection />
 
       <section>
         <SectionHeader>Tu nombre</SectionHeader>
@@ -270,6 +274,31 @@ const STATUS_TEXT: Partial<Record<SyncStatus['phase'], string>> = {
   pending: 'Guardando cambios…',
   offline: 'Sin conexión. Lo que cambies se subirá al volver.',
 };
+
+/** Solo aparece durante la semana de Halloween: permite quitar (o volver a poner) la decoración ese año. */
+function HalloweenSection() {
+  const today = useToday();
+  const season = useHalloween(today);
+  if (season === 'none') return null;
+  const year = today.slice(0, 4);
+  return (
+    <section>
+      <SectionHeader>Halloween 🎃</SectionHeader>
+      <div className="backup">
+        <p className="backup__text">
+          {season === 'on'
+            ? 'Hasta el 1 de noviembre, Nocta se disfraza: arañas, calabazas, fantasmas y algo de sangre. El 2 vuelve a ser la de siempre.'
+            : 'Has quitado la decoración de Halloween de este año. Vuelve sola el próximo.'}
+        </p>
+        <div className="backup__actions">
+          <button type="button" className="btn btn--secondary" onClick={() => setHalloweenOff(year, season === 'on')}>
+            {season === 'on' ? 'Quitar la decoración este año' : 'Volver a ponerla'}
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
 
 function NotificationsSection() {
   const notify = useNotify();

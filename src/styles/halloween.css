@@ -1,0 +1,206 @@
+/* Disfraz de Halloween (26 oct – 1 nov). Todo cuelga de :root[data-season='halloween'], que solo se pone esa semana
+   (src/components/Halloween.tsx): fuera de ella estas reglas no se aplican. */
+
+:root[data-season='halloween'] {
+  /* Noche morada, hueso, calabaza y sangre */
+  --bg-000: #0c0710;
+  --bg-100: #170d1d;
+  --bg-200: #241530;
+  --line: #3a2448;
+  --ink: #f3ead7;
+  --ink-muted: #b39cc2;
+  --accent: #ff7518;
+  --accent-ink: #1b0a00;
+  --exam: #e3263a;
+  --hot-track: rgba(27, 10, 0, 0.25);
+  --scrim: rgba(8, 4, 12, 0.8);
+  --hw-bone: #ece2cc;
+  --hw-blood: #b3001b;
+  --hw-web: rgba(243, 234, 215, 0.2);
+  --font-spooky: 'Creepster', 'Space Grotesk', system-ui, sans-serif;
+}
+
+/* Títulos con letra de película de miedo (solo títulos: el resto sigue siendo fácil de leer) */
+:root[data-season='halloween'] .display,
+:root[data-season='halloween'] .logo,
+:root[data-season='halloween'] .form__title,
+:root[data-season='halloween'] .welcome__title {
+  font-family: var(--font-spooky);
+  font-weight: 400;
+  letter-spacing: 0.04em;
+}
+
+:root[data-season='halloween'] .display {
+  color: var(--accent);
+  text-shadow: 0 2px 0 var(--hw-blood);
+}
+
+:root[data-season='halloween'] .logo::after {
+  content: ' 🎃';
+}
+
+/* Lo atrasado y los exámenes, en rojo sangre */
+:root[data-season='halloween'] .section--exam {
+  color: var(--exam);
+  text-shadow: 0 0 10px rgba(227, 38, 58, 0.45);
+}
+
+/* Estados vacíos con calabaza */
+:root[data-season='halloween'] .empty::before {
+  content: '🎃';
+  display: block;
+  font-size: 28px;
+  margin-bottom: var(--space-2);
+}
+
+/* El botón + como una calabaza que brilla */
+:root[data-season='halloween'] .fab {
+  box-shadow: 0 0 0 3px rgba(255, 117, 24, 0.25), 0 0 24px rgba(255, 117, 24, 0.45);
+}
+
+/* ---------- Decoraciones ---------- */
+
+.hw {
+  position: fixed;
+  inset: 0;
+  z-index: 30; /* encima del contenido, debajo de los diálogos (50) */
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* Sangre goteando por el borde de arriba */
+.hw-drips {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 26px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 26'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23c4001d'/%3E%3Cstop offset='1' stop-color='%237a0012'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath fill='url(%23g)' d='M0 0H200V4C196 4 195 5 194 8C193 13 193 18 191 18C189 18 189 13 188 8C187 5 186 4 160 4C150 4 149 5 148 8C147 11 147 13 145 13C143 13 143 11 142 8C141 5 140 4 120 4C100 4 99 5 98 9C97 16 97 24 94 24C91 24 91 16 90 9C89 5 88 4 60 4C40 4 39 5 38 7C37 10 37 11 35 11C33 11 33 10 32 7C31 5 30 4 12 4C8 4 7 5 6 8C5 12 5 16 3 16C1 16 1 12 0 8Z'/%3E%3C/svg%3E")
+    repeat-x top left / 200px 26px;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.5));
+}
+
+/* Telaraña en la esquina */
+.hw-web {
+  position: absolute;
+  top: 0;
+  right: 0;
+  color: var(--hw-web);
+}
+
+/* Araña que baja y sube por su hilo */
+.hw-spider {
+  position: absolute;
+  top: 0;
+  right: 70px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: #1c1022;
+  filter: drop-shadow(0 0 1px var(--hw-bone));
+  animation: hw-dangle 9s ease-in-out infinite;
+}
+
+.hw-spider__thread {
+  width: 1px;
+  height: 90px;
+  background: var(--hw-web);
+}
+
+@keyframes hw-dangle {
+  0%,
+  100% {
+    transform: translateY(-40px);
+  }
+  50% {
+    transform: translateY(60px);
+  }
+}
+
+/* Murciélagos que cruzan de vez en cuando */
+.hw-bat {
+  position: absolute;
+  left: 0;
+  color: #2a1636;
+  filter: drop-shadow(0 0 1px rgba(243, 234, 215, 0.35));
+  transform: translateX(-60px);
+  animation: hw-fly 26s linear infinite;
+}
+
+.hw-bat--1 {
+  top: 18%;
+}
+
+.hw-bat--2 {
+  top: 30%;
+  animation-delay: 13s;
+  animation-duration: 31s;
+}
+
+@keyframes hw-fly {
+  0% {
+    transform: translate(-60px, 0) scale(0.9);
+  }
+  25% {
+    transform: translate(30vw, -30px) scale(1);
+  }
+  50% {
+    transform: translate(60vw, 20px) scale(0.85);
+  }
+  70%,
+  100% {
+    transform: translate(110vw, -20px) scale(1);
+  }
+}
+
+/* Fantasma flotando en una esquina */
+.hw-ghost {
+  position: absolute;
+  right: var(--space-6);
+  bottom: var(--space-6);
+  opacity: 0.85;
+  filter: drop-shadow(0 0 12px rgba(236, 226, 204, 0.35));
+  animation: hw-float 6s ease-in-out infinite;
+}
+
+@keyframes hw-float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-4deg);
+  }
+  50% {
+    transform: translateY(-12px) rotate(4deg);
+  }
+}
+
+/* En el móvil: el fantasma arriba de la barra, a la izquierda (a la derecha está el botón +), y todo más pequeño */
+@media (max-width: 899px) {
+  .hw-web {
+    width: 110px;
+    height: 110px;
+  }
+
+  .hw-spider {
+    right: 40px;
+  }
+
+  .hw-ghost {
+    right: auto;
+    left: var(--space-4);
+    bottom: calc(var(--tabbar-h) + var(--space-4) + env(safe-area-inset-bottom));
+    width: 32px;
+    height: 38px;
+  }
+}
+
+/* Sin animaciones para quien las tiene desactivadas en el sistema */
+@media (prefers-reduced-motion: reduce) {
+  .hw-spider,
+  .hw-ghost {
+    animation: none;
+  }
+
+  .hw-bat {
+    display: none;
+  }
+}

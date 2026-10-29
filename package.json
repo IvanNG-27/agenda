@@ -4,7 +4,7 @@
   "description": "Agenda personal de deberes y exámenes",
   "author": "Iván",
   "private": true,
-  "version": "1.5.0",
+  "version": "1.6.0",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
@@ -17,6 +17,7 @@
     "dist": "npm run build:app && electron-builder --win && node scripts/zip.cjs"
   },
   "devDependencies": {
+    "@fontsource/creepster": "^5.3.0",
     "@fontsource/inter": "^5.3.0",
     "@fontsource/jetbrains-mono": "^5.3.0",
     "@fontsource/space-grotesk": "^5.3.0",

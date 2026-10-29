@@ -28,8 +28,9 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
-      # Falla si aparece cualquier vulnerabilidad conocida en las dependencias
-      - run: npm audit --audit-level=low
+      # Falla si aparece una vulnerabilidad conocida moderada o peor. Las bajas no bloquean: a veces no tienen arreglo
+      # (p. ej. deepmerge dentro de workbox-build, que solo procesa la configuración del propio proyecto al compilar).
+      - run: npm audit --audit-level=moderate
       - run: npm audit --audit-level=low
         working-directory: scripts/reminders
 
