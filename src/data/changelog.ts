@@ -8,6 +8,14 @@ export type Release = { version: string; changes: string[] };
 
 export const CHANGELOG: Release[] = [
   {
+    version: '1.7.0',
+    changes: [
+      '🎨 Más colores para tus asignaturas: ahora hay 24 para elegir.',
+      'Y si ninguno te convence, pulsa el círculo de colores para elegir el que quieras.',
+      '🗒️ Nuevo apartado Notas: apunta lo que quieras en notas de colores, con listas que puedes ir tachando, y fija arriba las importantes.',
+    ],
+  },
+  {
     version: '1.6.0',
     changes: [
       '🎃 Cada año, del 26 de octubre al 1 de noviembre, Nocta se disfraza de Halloween: arañas, calabazas, fantasmas, murciélagos y algo de sangre. El 2 de noviembre vuelve a ser la de siempre.',

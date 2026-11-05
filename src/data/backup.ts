@@ -1,6 +1,6 @@
 // Copias de seguridad: exportar el estado a un .json e importarlo validando cada campo.
-import type { AgendaEvent, Exam, State, Subject, Task } from './types';
-import { initialState, PALETTE } from './defaults';
+import type { AgendaEvent, Exam, Note, NoteItem, State, Subject, Task } from './types';
+import { initialState, isSubjectColor } from './defaults';
 import { todayISO } from '../lib/dates';
 import { EVENT_KINDS } from '../lib/events';
 import { cleanReminders } from '../lib/reminders';
@@ -10,7 +10,6 @@ const ISO = /^\d{4}-\d{2}-\d{2}$/;
 /** Límites de una copia: protegen la pestaña (y la cuota de Firestore al subirla) de archivos desmesurados. */
 export const MAX_BACKUP_BYTES = 5 * 1024 * 1024;
 export const MAX_BACKUP_ITEMS = 20000;
-const COLORS = new Set(PALETTE.map((p) => p.token));
 const KINDS = new Set<string>(EVENT_KINDS.map((k) => k.kind));
 const HOUR = /^([01]\d|2[0-3]):[0-5]\d$/;
 
@@ -46,7 +45,7 @@ export function parseBackup(text: string): State {
   if (!data || typeof data !== 'object' || data.version !== 1 || !Array.isArray(data.tasks)) {
     throw new Error('El archivo no es una copia de Nocta.');
   }
-  const items = ['subjects', 'tasks', 'exams', 'events'].reduce((n, k) => n + (Array.isArray(data[k]) ? (data[k] as unknown[]).length : 0), 0);
+  const items = ['subjects', 'tasks', 'exams', 'events', 'notes'].reduce((n, k) => n + (Array.isArray(data[k]) ? (data[k] as unknown[]).length : 0), 0);
   if (items > MAX_BACKUP_ITEMS) throw new Error(`La copia tiene demasiados elementos (máximo ${MAX_BACKUP_ITEMS}).`);
 
   const base = initialState();
@@ -55,6 +54,7 @@ export function parseBackup(text: string): State {
   const exams = arr(data.exams).flatMap((e) => cleanExam(e) ?? []);
   const events = arr(data.events).flatMap((e) => cleanEvent(e) ?? []); // las copias de antes de la 1.3.0 no tienen
   const studyLog = cleanDays(data.studyLog); // ni las de antes de la 1.4.0
+  const notes = arr(data.notes).flatMap((n) => cleanNote(n) ?? []); // ni las de antes de la 1.7.0
 
   return {
     version: 1,
@@ -64,6 +64,7 @@ export function parseBackup(text: string): State {
     exams,
     events,
     studyLog,
+    notes,
   };
 }
 
@@ -73,7 +74,8 @@ export function cleanSubject(s: Record<string, unknown>): Subject | null {
   const id = str(s.id, 60);
   const name = str(s.name, 60);
   if (!id || !name) return null;
-  const color = typeof s.color === 'string' && COLORS.has(s.color) ? s.color : PALETTE[0].token;
+  const raw = typeof s.color === 'string' ? s.color.toLowerCase() : '';
+  const color = isSubjectColor(raw) ? raw : 'subj-azul';
   return { id, name, short: str(s.short, 12) ?? name.slice(0, 12), color };
 }
 
@@ -123,4 +125,23 @@ export function cleanEvent(e: Record<string, unknown>): AgendaEvent | null {
     yearly: e.yearly === true || undefined,
     reminders: cleanReminders(e.reminders, !!time),
   };
+}
+
+export const MAX_NOTE_ITEMS = 50;
+
+export function cleanNote(n: Record<string, unknown>): Note | null {
+  const id = str(n.id, 60);
+  if (!id) return null;
+  const items: NoteItem[] = arr(n.items)
+    .flatMap((it) => {
+      const text = str(it.text, 300);
+      return text ? [{ text, done: it.done === true }] : [];
+    })
+    .slice(0, MAX_NOTE_ITEMS);
+  const title = str(n.title, 120);
+  const text = str(n.text, 5000);
+  if (!title && !text && !items.length) return null; // una nota vacía no se guarda
+  const color = typeof n.color === 'string' && isSubjectColor(n.color.toLowerCase()) ? n.color.toLowerCase() : undefined;
+  const updatedAt = typeof n.updatedAt === 'number' && Number.isFinite(n.updatedAt) ? n.updatedAt : 0;
+  return { id, title, text, items: items.length ? items : undefined, color, pinned: n.pinned === true || undefined, updatedAt };
 }

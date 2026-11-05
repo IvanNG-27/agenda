@@ -1,6 +1,6 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { initialState } from './defaults';
-import type { AgendaEvent, Exam, State, Subject, Task } from './types';
+import type { AgendaEvent, Exam, Note, State, Subject, Task } from './types';
 import { todayISO } from '../lib/dates';
 
 const KEY = 'nocta:v1';
@@ -11,7 +11,8 @@ function load(): State {
     if (raw) {
       const parsed = JSON.parse(raw) as State;
       // Los datos guardados antes de la 1.3.0 no tienen eventos, ni los de antes de la 1.4.0 rachas
-      if (parsed && parsed.version === 1) return { ...parsed, events: parsed.events ?? [], studyLog: parsed.studyLog ?? [] };
+      // Lo guardado por versiones anteriores puede no traer eventos (1.3.0), rachas (1.4.0) ni notas (1.7.0)
+      if (parsed && parsed.version === 1) return { ...parsed, events: parsed.events ?? [], studyLog: parsed.studyLog ?? [], notes: parsed.notes ?? [] };
     }
   } catch {
     /* datos corruptos o almacenamiento bloqueado: empezamos de cero */
@@ -58,6 +59,8 @@ export type Remote = {
   removeExam(id: string): void;
   putEvent(e: AgendaEvent): void;
   removeEvent(id: string): void;
+  putNote(n: Note): void;
+  removeNote(id: string): void;
   putSubject(s: Subject, order: number): void;
   removeSubject(id: string): void;
   putProfile(p: { userName: string }): void;
@@ -71,7 +74,7 @@ export const setRemote = (r: Remote | null) => {
 };
 
 /** Aplica datos que llegan de la nube sin volver a enviarlos. */
-export function applyRemote(patch: Partial<Pick<State, 'userName' | 'subjects' | 'tasks' | 'exams' | 'events' | 'studyLog'>>) {
+export function applyRemote(patch: Partial<Pick<State, 'userName' | 'subjects' | 'tasks' | 'exams' | 'events' | 'studyLog' | 'notes'>>) {
   set({ ...state, ...patch });
 }
 
@@ -151,6 +154,28 @@ export const actions = {
   deleteEvent(id: string) {
     set({ ...state, events: state.events.filter((e) => e.id !== id) });
     remote?.removeEvent(id);
+  },
+  /** Crea una nota y devuelve su id. */
+  addNote(n: Omit<Note, 'id' | 'updatedAt'>): string {
+    const note: Note = { ...n, id: uid(), updatedAt: Date.now() };
+    set({ ...state, notes: [...state.notes, note] });
+    remote?.putNote(note);
+    return note.id;
+  },
+  updateNote(id: string, patch: Partial<Omit<Note, 'id'>>) {
+    set({ ...state, notes: state.notes.map((n) => (n.id === id ? { ...n, ...patch, updatedAt: Date.now() } : n)) });
+    const note = state.notes.find((n) => n.id === id);
+    if (note) remote?.putNote(note);
+  },
+  /** Marca o desmarca un punto de la lista de una nota. */
+  toggleNoteItem(id: string, index: number) {
+    const note = state.notes.find((n) => n.id === id);
+    if (!note?.items?.[index]) return;
+    actions.updateNote(id, { items: note.items.map((it, i) => (i === index ? { ...it, done: !it.done } : it)) });
+  },
+  deleteNote(id: string) {
+    set({ ...state, notes: state.notes.filter((n) => n.id !== id) });
+    remote?.removeNote(id);
   },
   updateSubject(id: string, patch: Partial<Subject>) {
     set({ ...state, subjects: state.subjects.map((s) => (s.id === id ? { ...s, ...patch } : s)) });

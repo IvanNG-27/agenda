@@ -8,6 +8,7 @@ const DESKTOP: { name: Route['name']; label: string; icon: IconName }[] = [
   { name: 'calendario', label: 'Calendario', icon: 'calendario' },
   { name: 'tablero', label: 'Tablero', icon: 'tablero' },
   { name: 'examenes', label: 'Exámenes', icon: 'examenes' },
+  { name: 'notas', label: 'Notas', icon: 'notas' },
 ];
 
 const MOBILE: { name: Route['name']; label: string; icon: IconName }[] = [
@@ -15,6 +16,7 @@ const MOBILE: { name: Route['name']; label: string; icon: IconName }[] = [
   { name: 'semana', label: 'Semana', icon: 'semana' },
   { name: 'tablero', label: 'Tablero', icon: 'tablero' },
   { name: 'examenes', label: 'Exámenes', icon: 'examenes' },
+  { name: 'notas', label: 'Notas', icon: 'notas' },
 ];
 
 /** En escritorio la vista "Semana" vive dentro de Calendario, y en móvil al revés. */

@@ -14,6 +14,7 @@ import { ExamsView } from './views/ExamsView';
 import { SubjectView } from './views/SubjectView';
 import { SettingsView } from './views/SettingsView';
 import { PrivacyView } from './views/PrivacyView';
+import { NotesView } from './views/NotesView';
 import { UIContext, useMediaQuery, useRoute, type EditorRequest } from './ui';
 
 export default function App() {
@@ -67,6 +68,9 @@ export default function App() {
     case 'privacidad':
       view = <PrivacyView desktop={desktop} />;
       break;
+    case 'notas':
+      view = <NotesView state={state} desktop={desktop} />;
+      break;
     default:
       view = <HoyView {...props} />;
   }
@@ -88,7 +92,8 @@ export default function App() {
       ) : (
         <div className="mobile">
           {view}
-          {route.name !== 'ajustes' && route.name !== 'privacidad' && (
+          {/* Notas tiene su propio botón + (crea una nota) */}
+          {route.name !== 'ajustes' && route.name !== 'privacidad' && route.name !== 'notas' && (
             <button type="button" className="fab" onClick={() => openEditor(fabRequest)} aria-label="Añadir">
               +
             </button>

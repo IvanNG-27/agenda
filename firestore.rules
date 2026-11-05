@@ -55,6 +55,19 @@ service cloud.firestore {
         && d.updatedAt is int;
     }
 
+    // Nota libre (apartado Notas): título, texto, lista de hasta 50 puntos, color y fijada
+    function validNote(d, id) {
+      return d.keys().hasOnly(['id', 'title', 'text', 'items', 'color', 'pinned', 'updatedAt'])
+        && d.keys().hasAll(['id', 'updatedAt'])
+        && d.id == id
+        && optText(d, 'title', 120)
+        && optText(d, 'text', 5000)
+        && (!('items' in d) || (d.items is list && d.items.size() <= 50))
+        && (!('color' in d) || (d.color is string && (d.color.matches('^subj-[a-z]{1,20}$') || d.color.matches('^#[0-9a-f]{6}$'))))
+        && (!('pinned' in d) || d.pinned is bool)
+        && d.updatedAt is int;
+    }
+
     function validProfile(d) {
       return d.keys().hasOnly(['userName', 'studyLog'])
         && (!('userName' in d) || (d.userName is string && d.userName.size() <= 40))
@@ -68,7 +81,8 @@ service cloud.firestore {
         // Pueden quedar vacíos un momento mientras se editan en Ajustes
         && d.name is string && d.name.size() <= 60
         && d.short is string && d.short.size() <= 12
-        && d.color is string && d.color.matches('^subj-[a-z]{1,20}$')
+        // Uno de la paleta (subj-…) o uno personalizado (#rrggbb)
+        && d.color is string && (d.color.matches('^subj-[a-z]{1,20}$') || d.color.matches('^#[0-9a-f]{6}$'))
         && (!('order' in d) || (d.order is int && d.order >= 0 && d.order <= 999));
     }
 
@@ -131,6 +145,10 @@ service cloud.firestore {
       match /events/{id} {
         allow read, delete: if isOwner(uid);
         allow create, update: if isOwner(uid) && validEvent(request.resource.data, id);
+      }
+      match /notes/{id} {
+        allow read, delete: if isOwner(uid);
+        allow create, update: if isOwner(uid) && validNote(request.resource.data, id);
       }
       match /devices/{id} {
         allow read, delete: if isOwner(uid);

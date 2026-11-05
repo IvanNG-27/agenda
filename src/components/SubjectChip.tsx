@@ -1,5 +1,5 @@
 import type { Subject } from '../data/types';
-import { colorVar } from '../lib/rules';
+import { colorVar, inkOn } from '../lib/rules';
 
 type Props = {
   subject?: Subject;
@@ -12,7 +12,7 @@ type Props = {
 
 export function SubjectChip({ subject, label, solid, full, onClick }: Props) {
   const text = label ?? (full ? subject?.name : subject?.short) ?? '';
-  const style = solid ? { background: subject ? colorVar(subject) : 'var(--accent)' } : undefined;
+  const style = solid ? { background: subject ? colorVar(subject) : 'var(--accent)', color: subject ? inkOn(subject.color) : undefined } : undefined;
   const cls = `chip${solid ? ' chip--solid' : ''}`;
   const content = (
     <>

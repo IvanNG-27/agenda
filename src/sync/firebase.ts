@@ -52,7 +52,7 @@ import {
 import { deleteToken, getMessaging, getToken, isSupported } from 'firebase/messaging';
 import { applyRemote, getState, resetLocal, setRemote, subscribeStore, type Remote } from '../data/store';
 import { upcomingReminders } from '../lib/reminders';
-import { cleanDays, cleanEvent, cleanExam, cleanSubject, cleanTask } from '../data/backup';
+import { cleanDays, cleanEvent, cleanExam, cleanNote, cleanSubject, cleanTask } from '../data/backup';
 import type { State } from '../data/types';
 import { appCheckSiteKey, firebaseConfig, useEmulator, vapidKey } from './config';
 import { getSyncStatus, messageFor, setSyncStatus } from './index';
@@ -164,7 +164,7 @@ export async function deleteAccount() {
   try {
     const base = doc(db, 'users', u.uid);
     const ops: BatchOp[] = [];
-    for (const name of ['tasks', 'exams', 'events', 'subjects', 'devices']) {
+    for (const name of ['tasks', 'exams', 'events', 'subjects', 'notes', 'devices']) {
       const snap = await getDocsFromServer(collection(base, name));
       snap.docs.forEach((d) => ops.push((b) => b.delete(d.ref)));
     }
@@ -242,10 +242,11 @@ async function mergeOrSignOut(uid: string, local: State, owner: string | null) {
  */
 async function merge(uid: string, local: State) {
   const base = doc(db, 'users', uid);
-  const [tasks, exams, events, subjects, profile] = await Promise.all([
+  const [tasks, exams, events, notes, subjects, profile] = await Promise.all([
     getDocsFromServer(collection(base, 'tasks')),
     getDocsFromServer(collection(base, 'exams')),
     getDocsFromServer(collection(base, 'events')),
+    getDocsFromServer(collection(base, 'notes')),
     getDocsFromServer(collection(base, 'subjects')),
     getDocFromServer(base),
   ]);
@@ -258,6 +259,8 @@ async function merge(uid: string, local: State) {
   for (const e of local.exams) if (!remoteExams.has(e.id)) writes.push([doc(base, 'exams', e.id), e]);
   const remoteEvents = ids(events);
   for (const e of local.events) if (!remoteEvents.has(e.id)) writes.push([doc(base, 'events', e.id), e]);
+  const remoteNotes = ids(notes);
+  for (const n of local.notes) if (!remoteNotes.has(n.id)) writes.push([doc(base, 'notes', n.id), n]);
   const remoteSubjects = ids(subjects);
   local.subjects.forEach((s, order) => {
     if (!remoteSubjects.has(s.id)) writes.push([doc(base, 'subjects', s.id), { ...s, order }]);
@@ -288,7 +291,7 @@ function listen(u: User) {
   setRemote(makeRemote(base));
   setSyncStatus({ phase: 'starting', email: u.email ?? undefined });
 
-  const watch = (name: 'tasks' | 'exams' | 'events' | 'subjects', apply: (docs: Record<string, unknown>[]) => void) =>
+  const watch = (name: 'tasks' | 'exams' | 'events' | 'notes' | 'subjects', apply: (docs: Record<string, unknown>[]) => void) =>
     onSnapshot(
       collection(base, name),
       { includeMetadataChanges: true },
@@ -309,6 +312,7 @@ function listen(u: User) {
     watch('tasks', (docs) => applyRemote({ tasks: docs.flatMap((d) => cleanTask(d) ?? []) })),
     watch('exams', (docs) => applyRemote({ exams: docs.flatMap((d) => cleanExam(d) ?? []) })),
     watch('events', (docs) => applyRemote({ events: docs.flatMap((d) => cleanEvent(d) ?? []) })),
+    watch('notes', (docs) => applyRemote({ notes: docs.flatMap((d) => cleanNote(d) ?? []) })),
     watch('subjects', (docs) => {
       const list = docs
         .sort((a, b) => order(a) - order(b) || String(a.id).localeCompare(String(b.id)))
@@ -465,6 +469,8 @@ function makeRemote(base: DocumentReference): Remote {
     removeExam: (id) => send(deleteDoc(ref('exams', id))),
     putEvent: (e) => send(setDoc(ref('events', e.id), e)),
     removeEvent: (id) => send(deleteDoc(ref('events', id))),
+    putNote: (n) => send(setDoc(ref('notes', n.id), n)),
+    removeNote: (id) => send(deleteDoc(ref('notes', id))),
     putSubject: (s, order) => send(setDoc(ref('subjects', s.id), { ...s, order })),
     removeSubject: (id) => send(deleteDoc(ref('subjects', id))),
     putProfile: (p) => send(setDoc(base, p, { merge: true })),
@@ -475,14 +481,17 @@ function makeRemote(base: DocumentReference): Remote {
       const nextTasks = keep(next.tasks);
       const nextExams = keep(next.exams);
       const nextEvents = keep(next.events);
+      const nextNotes = keep(next.notes);
       const nextSubjects = keep(next.subjects);
       for (const t of prev.tasks) if (!nextTasks.has(t.id)) ops.push((b) => b.delete(ref('tasks', t.id)));
       for (const e of prev.exams) if (!nextExams.has(e.id)) ops.push((b) => b.delete(ref('exams', e.id)));
       for (const e of prev.events) if (!nextEvents.has(e.id)) ops.push((b) => b.delete(ref('events', e.id)));
+      for (const n of prev.notes) if (!nextNotes.has(n.id)) ops.push((b) => b.delete(ref('notes', n.id)));
       for (const s of prev.subjects) if (!nextSubjects.has(s.id)) ops.push((b) => b.delete(ref('subjects', s.id)));
       for (const t of next.tasks) ops.push((b) => b.set(ref('tasks', t.id), t));
       for (const e of next.exams) ops.push((b) => b.set(ref('exams', e.id), e));
       for (const e of next.events) ops.push((b) => b.set(ref('events', e.id), e));
+      for (const n of next.notes) ops.push((b) => b.set(ref('notes', n.id), n));
       next.subjects.forEach((s, order) => ops.push((b) => b.set(ref('subjects', s.id), { ...s, order })));
       ops.push((b) => b.set(base, { userName: next.userName, studyLog: next.studyLog }, { merge: true }));
       send(commit(ops));
@@ -498,7 +507,7 @@ function updateStatus() {
   let phase: 'synced' | 'pending' | 'offline' | 'starting';
   if (!navigator.onLine) phase = 'offline';
   else if (pending) phase = 'pending';
-  else if (all.length < 5 || all.some((m) => m.fromCache)) phase = 'starting';
+  else if (all.length < 6 || all.some((m) => m.fromCache)) phase = 'starting';
   else phase = 'synced';
   const prev = getSyncStatus();
   setSyncStatus({ phase, email, error: phase === 'synced' ? undefined : prev.error });

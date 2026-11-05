@@ -8,6 +8,7 @@ export type Route =
   | { name: 'examenes' }
   | { name: 'ajustes' }
   | { name: 'privacidad' }
+  | { name: 'notas' }
   | { name: 'asignatura'; id: string };
 
 export type EditorRequest = {
@@ -44,6 +45,7 @@ function parse(hash: string): Route {
         return { name: 'hoy' }; // "%" mal formado en un enlace: no debe tumbar la app
       }
     case 'privacidad':
+    case 'notas':
       return { name };
     default:
       return { name: 'hoy' };

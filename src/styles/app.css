@@ -633,7 +633,7 @@ ul {
   bottom: 0;
   z-index: 10;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   padding: var(--space-3) var(--space-2) calc(22px + env(safe-area-inset-bottom));
   background: var(--bg-100);
   border-top: var(--border) solid var(--line);
@@ -1919,4 +1919,230 @@ label.field .field__label {
 .chip:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+/* Color personalizado: arcoíris con "+" hasta que se elige uno */
+.swatch--custom {
+  position: relative;
+  background: conic-gradient(#ff8a8a, #ffc36b, #efe08a, #9be38b, #5fe0c8, #7cc4ff, #b98cff, #f48fe8, #ff8a8a);
+  font: 700 16px/1 var(--font-sans);
+  cursor: pointer;
+}
+
+.swatch--custom:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* El selector nativo ocupa todo el círculo pero no se ve: así se abre al pulsar en cualquier parte */
+.swatch__input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  border: 0;
+  padding: 0;
+}
+
+/* Sin color (notas): círculo vacío con borde */
+.swatch--none {
+  background: var(--bg-100);
+  box-shadow: inset 0 0 0 2px var(--line);
+  color: var(--ink);
+}
+
+/* ---------- Notas (pósits) ---------- */
+
+.notes__search {
+  margin-bottom: var(--space-2);
+}
+
+/* Mosaico: cada nota ocupa lo que necesita y las columnas se rellenan de arriba abajo */
+.notes {
+  columns: 240px;
+  column-gap: var(--space-3);
+}
+
+.note-card {
+  break-inside: avoid;
+  margin-bottom: var(--space-3);
+  padding: var(--space-4);
+  border: var(--border) solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--bg-100);
+  color: var(--ink);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.note-card--color {
+  border-color: transparent;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.25);
+}
+
+.note-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+
+.note-card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.note-card__title {
+  margin: 0;
+  font: var(--t-label);
+  font-size: var(--fs-15, 15px);
+  overflow-wrap: anywhere;
+}
+
+.note-card__text {
+  margin: 0;
+  font: var(--t-body);
+  font-weight: 400;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 10;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.note-card__items {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font: var(--t-body);
+  font-weight: 400;
+}
+
+.note-card__items li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  overflow-wrap: anywhere;
+}
+
+.note-card__items li.is-done span {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+
+.note-card__more {
+  opacity: 0.7;
+  font: var(--t-caption);
+}
+
+/* Casilla que hereda el color del texto de la nota (oscuro o claro según el fondo) */
+.note-check {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  flex: none;
+  padding: 0;
+  border: 1.5px solid currentColor;
+  border-radius: 5px;
+  background: none;
+  color: inherit;
+  display: grid;
+  place-items: center;
+  opacity: 0.85;
+}
+
+.note-check .icon {
+  stroke-width: 3;
+}
+
+.note-card__date {
+  margin: 0;
+  font: var(--t-caption);
+  opacity: 0.65;
+}
+
+.notes__empty {
+  margin-top: var(--space-2);
+  padding: var(--space-8) var(--space-4);
+  border: 1.5px dashed var(--line);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  text-align: center;
+  color: var(--ink-muted);
+  font: var(--t-body);
+}
+
+.notes__empty p {
+  margin: 0;
+  max-width: 340px;
+}
+
+.notes__empty-icon {
+  font-size: 40px;
+}
+
+/* Editor: franja de arriba con el color de la nota */
+.note-editor {
+  border-top: 6px solid var(--line);
+}
+
+.note-editor .form__head {
+  gap: var(--space-2);
+}
+
+.note-editor__pin {
+  margin-left: auto;
+  font-size: 16px;
+  filter: grayscale(1);
+  opacity: 0.6;
+}
+
+.note-editor__pin.is-active {
+  filter: none;
+  opacity: 1;
+  background: var(--bg-200);
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+
+.note-editor__title {
+  font: var(--t-title);
+}
+
+.note-editor__items {
+  margin: 0 0 var(--space-2);
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.note-editor__items li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.note-editor__items .checkbox {
+  margin-left: 0;
+}
+
+.note-editor__items .input {
+  flex: 1;
+  min-width: 0;
+}
+
+.note-editor__items .input.is-done {
+  text-decoration: line-through;
+  color: var(--ink-muted);
 }

@@ -25,6 +25,21 @@
   --subj-arena: #d9c2a0;
   --subj-verde: #9be38b;
   --subj-amarillo: #efe08a;
+  --subj-rojo: #ff8a8a;
+  --subj-frambuesa: #ff8fb1;
+  --subj-coral: #ff9f80;
+  --subj-naranja: #ffb070;
+  --subj-melocoton: #ffcba4;
+  --subj-oro: #f5c84c;
+  --subj-lima: #d4f08c;
+  --subj-esmeralda: #6fdc9f;
+  --subj-menta: #a8f0d1;
+  --subj-cian: #7fe7f2;
+  --subj-cielo: #9ccfff;
+  --subj-indigo: #8c9bff;
+  --subj-purpura: #b98cff;
+  --subj-fucsia: #f48fe8;
+  --subj-gris: #c3c8d4;
 
   /* 2.2 Tipografía */
   --font-display: "Space Grotesk", system-ui, sans-serif;

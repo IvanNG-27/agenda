@@ -49,4 +49,20 @@ export const pendingCount = (tasks: Task[], subjectId: string) =>
 
 export const subjectMap = (subjects: Subject[]) => new Map(subjects.map((s) => [s.id, s]));
 
-export const colorVar = (s?: Subject) => (s ? `var(--${s.color})` : 'var(--ink-muted)');
+/** CSS de un color de asignatura: los de la paleta son variables de tokens.css; los personalizados, "#rrggbb". */
+export const colorCss = (color: string) => (color.startsWith('#') ? color : `var(--${color})`);
+
+export const colorVar = (s?: Subject) => (s ? colorCss(s.color) : 'var(--ink-muted)');
+
+/** Luminancia relativa (0 negro – 1 blanco) de un color personalizado. */
+export function luminance(hex: string): number {
+  const [r, g, b] = [1, 3, 5].map((i) => {
+    const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+/** Texto que se lee encima del color: oscuro sobre los claros (toda la paleta), blanco sobre los oscuros.
+ *  0,18 es donde los dos dan el mismo contraste WCAG con el texto oscuro de la app. */
+export const inkOn = (color: string) => (color.startsWith('#') && luminance(color) < 0.18 ? '#ffffff' : 'var(--accent-ink)');

@@ -2,12 +2,13 @@ import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEv
 import type { State } from '../data/types';
 import { actions } from '../data/store';
 import { downloadBackup, MAX_BACKUP_BYTES, parseBackup } from '../data/backup';
-import { nextColor, PALETTE, shortFrom } from '../data/defaults';
+import { nextColor, shortFrom } from '../data/defaults';
 import type { Subject } from '../data/types';
 import { SectionHeader } from '../components/Common';
 import { Icon } from '../components/Icons';
 import { PageHeader } from '../components/PageHeader';
 import { href } from '../ui';
+import { Swatches } from '../components/ColorPicker';
 import { deleteAccount, signIn, signOut, useSync, type SyncStatus } from '../sync';
 import { isDesktopApp } from '../sync/config';
 import { releasesBetween } from '../data/changelog';
@@ -59,31 +60,9 @@ export function SettingsView({ state, desktop }: Props) {
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
-/** "3 tareas, 1 examen y 2 eventos" */
+/** "3 tareas, 1 examen, 2 eventos y 4 notas" */
 const summary = (s: State) =>
-  `${plural(s.tasks.length, 'tarea', 'tareas')}, ${plural(s.exams.length, 'examen', 'exámenes')} y ${plural(s.events.length, 'evento', 'eventos')}`;
-
-function Swatches({ label, value, onChange }: { label: string; value: string; onChange: (token: string) => void }) {
-  return (
-    <div className="swatches" role="radiogroup" aria-label={label}>
-      {PALETTE.map((p) => (
-        <button
-          key={p.token}
-          type="button"
-          role="radio"
-          aria-checked={value === p.token}
-          aria-label={p.name}
-          title={p.name}
-          className={`swatch${value === p.token ? ' is-active' : ''}`}
-          style={{ background: `var(--${p.token})` }}
-          onClick={() => onChange(p.token)}
-        >
-          {value === p.token && <Icon name="check" size={14} />}
-        </button>
-      ))}
-    </div>
-  );
-}
+  `${plural(s.tasks.length, 'tarea', 'tareas')}, ${plural(s.exams.length, 'examen', 'exámenes')}, ${plural(s.events.length, 'evento', 'eventos')} y ${plural(s.notes.length, 'nota', 'notas')}`;
 
 function SubjectsSection({ state }: { state: State }) {
   const [adding, setAdding] = useState(false);

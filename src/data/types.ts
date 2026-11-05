@@ -56,4 +56,20 @@ export type State = {
   events: AgendaEvent[];
   /** Todos los días en los que se ha estudiado. Se conserva aunque se borren exámenes: de aquí sale la mejor racha. */
   studyLog: string[];
+  notes: Note[];
+};
+
+export type NoteItem = { text: string; done: boolean };
+
+/** Nota libre del apartado Notas, tipo pósit: texto, una lista con casillas o las dos cosas. */
+export type Note = {
+  id: string;
+  title?: string;
+  text?: string;
+  items?: NoteItem[];
+  /** Color de fondo: de la paleta (subj-…), personalizado (#rrggbb) o sin color */
+  color?: string;
+  /** Fijada arriba del todo */
+  pinned?: boolean;
+  updatedAt: number; // ms
 };

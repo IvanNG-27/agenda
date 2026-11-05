@@ -2,7 +2,7 @@
 import type { ReactNode } from 'react';
 
 export type IconName =
-  | 'hoy' | 'calendario' | 'tablero' | 'examenes' | 'semana' | 'ajustes'
+  | 'hoy' | 'calendario' | 'tablero' | 'examenes' | 'notas' | 'semana' | 'ajustes'
   | 'buscar' | 'mas' | 'izq' | 'der' | 'check' | 'cerrar';
 
 const paths: Record<IconName, ReactNode> = {
@@ -52,6 +52,12 @@ const paths: Record<IconName, ReactNode> = {
   mas: <path d="M12 5v14M5 12h14" />,
   izq: <path d="m14.5 6-6 6 6 6" />,
   der: <path d="m9.5 6 6 6-6 6" />,
+  notas: (
+    <>
+      <path className="ic-body" d="M5.5 3.5h13a2 2 0 0 1 2 2v9l-6 6h-9a2 2 0 0 1-2-2v-13a2 2 0 0 1 2-2Z" />
+      <path className="ic-detail" d="M14.5 20.5v-4a2 2 0 0 1 2-2h4M8 8.5h8M8 12h5" />
+    </>
+  ),
   check: <path d="m5.5 12.5 4.2 4.2 8.8-9.4" />,
   cerrar: <path d="M6.5 6.5l11 11M17.5 6.5l-11 11" />,
 };
