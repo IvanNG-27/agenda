@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   send:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
       contents: read
@@ -30,7 +30,7 @@ jobs:
           sparse-checkout: scripts/reminders
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
           cache-dependency-path: scripts/reminders/package-lock.json
       - run: npm ci --omit=dev

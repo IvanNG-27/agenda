@@ -1,5 +1,7 @@
 # Publica la web de Nocta en GitHub Pages cada vez que se sube algo a main.
 # Las acciones van fijadas por SHA (la versión en el comentario): una etiqueta se puede mover, un SHA no.
+# Node 24 (con npm 11) es el mismo con el que se generan los package-lock.json: con otro npm, `npm ci` puede fallar.
+# El sistema va fijo (ubuntu-24.04) para que no cambie solo cuando GitHub mueva ubuntu-latest.
 name: Publicar en GitHub Pages
 
 on:
@@ -16,7 +18,7 @@ concurrency:
 
 jobs:
   security:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     env:
@@ -27,7 +29,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 22
+          node-version: 24
       # Falla si aparece una vulnerabilidad conocida moderada o peor. Las bajas no bloquean: a veces no tienen arreglo
       # (p. ej. deepmerge dentro de workbox-build, que solo procesa la configuración del propio proyecto al compilar).
       - run: npm audit --audit-level=moderate
@@ -36,7 +38,7 @@ jobs:
 
   build:
     needs: security
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     env:
@@ -48,7 +50,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
       - run: npm ci
       - run: npm run build:pages
@@ -59,7 +61,7 @@ jobs:
 
   deploy:
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # Solo este job puede publicar en Pages
     permissions:
       pages: write
