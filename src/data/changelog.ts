@@ -8,6 +8,13 @@ export type Release = { version: string; changes: string[] };
 
 export const CHANGELOG: Release[] = [
   {
+    version: '1.8.1',
+    changes: [
+      'Arreglado el inicio de sesión en algunos móviles (sobre todo iPhone y Nocta instalada en la pantalla de inicio): elegías tu cuenta y no pasaba nada.',
+      'Si el inicio de sesión no se completa, ahora Nocta te dice qué ha pasado en lugar de quedarse igual.',
+    ],
+  },
+  {
     version: '1.8.0',
     changes: [
       '👥 Nuevo: grupos. Comparte un calendario con tu clase, tu familia o tus amigos: asignaturas, tareas, exámenes, eventos y notas.',

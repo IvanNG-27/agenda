@@ -119,8 +119,13 @@ export function start() {
   // siguen en el store y se juntan con los de la nube.
   const bootState = getState();
   const bootOwner = getOwner();
+  const redirected = takeRedirectFlag();
   getRedirectResult(auth)
-    .then((res) => res && mergeOrSignOut(res.user.uid, bootState, bootOwner))
+    .then(async (res) => {
+      if (res) await mergeOrSignOut(res.user.uid, bootState, bootOwner);
+      // Se fue a Google y ha vuelto sin sesión: avisar en lugar de no hacer nada
+      else if (redirected && !auth.currentUser) setSyncStatus({ phase: 'signed-out', error: LOGIN_FAILED });
+    })
     .catch(onError);
 
   onAuthStateChanged(auth, (u) => {
@@ -138,18 +143,45 @@ export function start() {
   window.addEventListener('offline', updateStatus);
 }
 
+const REDIRECT_FLAG = 'nocta:login-redirect';
+const LOGIN_FAILED =
+  'No se ha completado el inicio de sesión. Vuelve a intentarlo abriendo Nocta directamente en el navegador (Safari o Chrome), no desde el enlace de otra app.';
+
+function takeRedirectFlag() {
+  try {
+    const on = sessionStorage.getItem(REDIRECT_FLAG) === '1';
+    sessionStorage.removeItem(REDIRECT_FLAG);
+    return on;
+  } catch {
+    return false;
+  }
+}
+
+async function redirectSignIn(provider: GoogleAuthProvider) {
+  try {
+    sessionStorage.setItem(REDIRECT_FLAG, '1');
+  } catch {
+    /* sin sessionStorage no se puede avisar si vuelve sin sesión */
+  }
+  await signInWithRedirect(auth, provider);
+}
+
+/** App instalada en la pantalla de inicio del iPhone: ahí la ventana emergente no puede devolver la sesión. */
+const iosHomeScreen = () => (navigator as Navigator & { standalone?: boolean }).standalone === true;
+
 export async function signIn() {
   start();
   const provider = new GoogleAuthProvider();
   provider.setCustomParameters({ prompt: 'select_account' });
+  if (iosHomeScreen()) return redirectSignIn(provider);
   try {
     await signInWith(() => signInWithPopup(auth, provider));
   } catch (err) {
     const code = (err as { code?: string }).code;
     if (code === 'auth/popup-blocked' || code === 'auth/operation-not-supported-in-environment') {
-      await signInWithRedirect(auth, provider);
+      await redirectSignIn(provider);
     } else if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
-      setSyncStatus({ phase: 'signed-out' });
+      setSyncStatus({ phase: 'signed-out', error: 'No se ha completado el inicio de sesión. Si elegiste tu cuenta y no ha funcionado, vuelve a intentarlo.' });
     } else {
       throw err;
     }
@@ -261,6 +293,12 @@ async function mergeOrSignOut(uid: string, local: State, owner: string | null) {
     stop();
     user = null;
     await firebaseSignOut(auth).catch(() => {});
+    if ((err as { code?: string })?.code === 'permission-denied') {
+      throw Object.assign(
+        new Error('No se ha podido subir a tu cuenta lo que tienes en este dispositivo, así que no se ha iniciado la sesión. Exporta una copia en Ajustes y escríbenos.'),
+        { code: 'subida-rechazada' },
+      );
+    }
     throw err;
   }
 }

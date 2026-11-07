@@ -121,6 +121,7 @@ export function messageFor(err: unknown): string {
     // Errores propios de los grupos: ya traen su mensaje
     case 'codigo-invalido':
     case 'sin-sesion':
+    case 'subida-rechazada':
       return (err as Error).message;
     case 'auth/unauthorized-domain':
       return 'Este dominio no está autorizado en Firebase. Añádelo en Authentication → Configuración → Dominios autorizados.';

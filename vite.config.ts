@@ -26,8 +26,8 @@ function csp(electron: boolean): string {
         'default-src': "'self'",
         'script-src': "'self' https://apis.google.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/",
         'connect-src': `'self' https://*.googleapis.com https://apis.google.com${emulator}`,
-        // authDomain de src/sync/config.ts: Firebase Auth abre ahí su iframe para el inicio de sesión
-        'frame-src': 'https://nocta-5f52e.firebaseapp.com https://www.google.com/recaptcha/ https://recaptcha.google.com/recaptcha/',
+        // authDomain de src/sync/config.ts (el mismo dominio que la app): Firebase Auth abre ahí su iframe
+        'frame-src': "'self' https://www.google.com/recaptcha/ https://recaptcha.google.com/recaptcha/",
         'worker-src': "'self'",
         'manifest-src': "'self'",
       };

@@ -2,7 +2,11 @@
 // Estos valores no son secretos: identifican el proyecto. Lo que protege los datos son las reglas de firestore.rules.
 const projectConfig = {
   apiKey: 'AIzaSyAVWThnI1-meVwvMWuopVqM9JRXY4rH5lQ',
-  authDomain: 'nocta-5f52e.firebaseapp.com',
+  // El mismo dominio que la app: los archivos de inicio de sesión de Firebase se sirven en
+  // https://ivanng-27.github.io/__/auth/ (repositorio IvanNG-27.github.io). Con nocta-5f52e.firebaseapp.com,
+  // Safari (iPhone), Chrome y Firefox recientes bloquean el almacenamiento entre sitios y el inicio de sesión
+  // vuelve sin sesión y sin error.
+  authDomain: 'ivanng-27.github.io',
   projectId: 'nocta-5f52e',
   storageBucket: 'nocta-5f52e.firebasestorage.app',
   messagingSenderId: '101342059035',
