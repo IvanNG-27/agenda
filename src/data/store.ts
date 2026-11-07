@@ -1,6 +1,6 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { initialState } from './defaults';
-import type { AgendaEvent, Exam, Note, State, Subject, Task } from './types';
+import type { AgendaEvent, Exam, Group, Note, State, Subject, Task } from './types';
 import { todayISO } from '../lib/dates';
 
 const KEY = 'nocta:v1';
@@ -10,9 +10,10 @@ function load(): State {
     const raw = localStorage.getItem(KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as State;
-      // Los datos guardados antes de la 1.3.0 no tienen eventos, ni los de antes de la 1.4.0 rachas
-      // Lo guardado por versiones anteriores puede no traer eventos (1.3.0), rachas (1.4.0) ni notas (1.7.0)
-      if (parsed && parsed.version === 1) return { ...parsed, events: parsed.events ?? [], studyLog: parsed.studyLog ?? [], notes: parsed.notes ?? [] };
+      // Lo guardado por versiones anteriores puede no traer eventos (1.3.0), rachas (1.4.0), notas (1.7.0) ni grupos (1.8.0)
+      if (parsed && parsed.version === 1) {
+        return { ...parsed, events: parsed.events ?? [], studyLog: parsed.studyLog ?? [], notes: parsed.notes ?? [], groups: parsed.groups ?? [] };
+      }
     }
   } catch {
     /* datos corruptos o almacenamiento bloqueado: empezamos de cero */
@@ -51,20 +52,45 @@ export const useStore = () => useSyncExternalStore(subscribe, () => state);
 export const subscribeStore = subscribe;
 export const getState = () => state;
 
-/** Destino de los cambios en la nube (Firebase) mientras hay sesión iniciada. */
+// ---------- Grupos y permisos ----------
+
+type Item = { group?: string };
+export type ListKey = 'subjects' | 'tasks' | 'exams' | 'events' | 'notes';
+const LISTS: ListKey[] = ['subjects', 'tasks', 'exams', 'events', 'notes'];
+
+export const groupOf = (s: State, id?: string): Group | undefined => (id ? s.groups.find((g) => g.id === id) : undefined);
+
+/** ¿Puede esta persona cambiar el elemento? Lo personal, siempre; lo de un grupo, si administra o edita en él. */
+export function canEdit(item: Item | undefined, s: State = state): boolean {
+  if (!item?.group) return true;
+  const role = groupOf(s, item.group)?.role;
+  return role === 'owner' || role === 'editor';
+}
+
+/** Grupos en los que puede añadir cosas. */
+export const editableGroups = (s: State = state) => s.groups.filter((g) => g.role === 'owner' || g.role === 'editor');
+
+/** Solo lo personal (copias de seguridad, fusión al iniciar sesión…). */
+export function personalOnly(s: State): State {
+  const own = <T extends Item>(list: T[]) => list.filter((x) => !x.group);
+  return { ...s, subjects: own(s.subjects), tasks: own(s.tasks), exams: own(s.exams), events: own(s.events), notes: own(s.notes), groups: [] };
+}
+
+/** Destino de los cambios en la nube (Firebase) mientras hay sesión iniciada. Cada elemento sabe si es de un grupo. */
 export type Remote = {
   putTask(t: Task): void;
-  removeTask(id: string): void;
+  removeTask(t: Task): void;
   putExam(e: Exam): void;
-  removeExam(id: string): void;
+  removeExam(e: Exam): void;
   putEvent(e: AgendaEvent): void;
-  removeEvent(id: string): void;
+  removeEvent(e: AgendaEvent): void;
   putNote(n: Note): void;
-  removeNote(id: string): void;
+  removeNote(n: Note): void;
   putSubject(s: Subject, order: number): void;
-  removeSubject(id: string): void;
+  removeSubject(s: Subject): void;
   putProfile(p: { userName: string }): void;
   putStudyLog(days: string[]): void;
+  /** Solo lo personal: los grupos no se tocan al importar una copia */
   replaceAll(prev: State, next: State): void;
 };
 
@@ -73,9 +99,32 @@ export const setRemote = (r: Remote | null) => {
   remote = r;
 };
 
-/** Aplica datos que llegan de la nube sin volver a enviarlos. */
-export function applyRemote(patch: Partial<Pick<State, 'userName' | 'subjects' | 'tasks' | 'exams' | 'events' | 'studyLog' | 'notes'>>) {
-  set({ ...state, ...patch });
+/** Aplica datos personales que llegan de la nube sin volver a enviarlos. Lo de los grupos se conserva. */
+export function applyRemote(patch: Partial<Pick<State, 'userName' | 'studyLog' | ListKey>>) {
+  const next = { ...state, ...patch } as State;
+  for (const key of LISTS) {
+    if (patch[key]) (next[key] as Item[]) = [...(patch[key] as Item[]), ...(state[key] as Item[]).filter((x) => x.group)];
+  }
+  set(next);
+}
+
+/** Aplica lo que llega de la nube para un grupo: sustituye sus elementos de esa lista. */
+export function applyGroupList(groupId: string, key: ListKey, items: Item[]) {
+  const others = (state[key] as Item[]).filter((x) => x.group !== groupId);
+  set({ ...state, [key]: [...others, ...items.map((x) => ({ ...x, group: groupId }))] } as State);
+}
+
+/** Datos del propio grupo (nombre, miembros, papel). Si no estaba, se añade. */
+export function applyGroup(group: Group) {
+  const exists = state.groups.some((g) => g.id === group.id);
+  set({ ...state, groups: exists ? state.groups.map((g) => (g.id === group.id ? group : g)) : [...state.groups, group] });
+}
+
+/** Quita de este dispositivo un grupo y todo lo suyo (al salir, ser expulsado o borrarse el grupo). */
+export function dropGroup(groupId: string) {
+  const next = { ...state, groups: state.groups.filter((g) => g.id !== groupId) } as State;
+  for (const key of LISTS) (next[key] as Item[]) = (state[key] as Item[]).filter((x) => x.group !== groupId);
+  set(next);
 }
 
 /** Borra los datos de este dispositivo sin tocar la nube (al cerrar sesión o al entrar otra cuenta). */
@@ -85,14 +134,19 @@ export function resetLocal() {
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
+/** Posición de la asignatura entre las de su mismo sitio (personal o el mismo grupo), para el orden en la nube. */
+const orderOf = (s: Subject, list: Subject[] = state.subjects) => list.filter((x) => x.group === s.group).indexOf(s);
+
 export const actions = {
   addTask(t: Omit<Task, 'id' | 'done'>) {
+    if (!canEdit(t)) return;
     const task: Task = { ...t, id: uid(), done: false };
     set({ ...state, tasks: [...state.tasks, task] });
     remote?.putTask(task);
   },
   updateTask(id: string, patch: Partial<Task>) {
-    set({ ...state, tasks: state.tasks.map((t) => (t.id === id ? { ...t, ...patch } : t)) });
+    if (!canEdit(state.tasks.find((t) => t.id === id))) return;
+    set({ ...state, tasks: state.tasks.map((t) => (t.id === id ? { ...t, ...patch, group: t.group } : t)) });
     const task = state.tasks.find((t) => t.id === id);
     if (task) remote?.putTask(task);
   },
@@ -104,27 +158,33 @@ export const actions = {
     if (t) actions.setDone(id, !t.done);
   },
   deleteTask(id: string) {
+    const task = state.tasks.find((t) => t.id === id);
+    if (!task || !canEdit(task)) return;
     set({ ...state, tasks: state.tasks.filter((t) => t.id !== id) });
-    remote?.removeTask(id);
+    remote?.removeTask(task);
   },
   addExam(e: Omit<Exam, 'id'>) {
+    if (!canEdit(e)) return;
     const exam: Exam = { ...e, id: uid() };
     set({ ...state, exams: [...state.exams, exam] });
     remote?.putExam(exam);
   },
   updateExam(id: string, patch: Partial<Exam>) {
-    set({ ...state, exams: state.exams.map((e) => (e.id === id ? { ...e, ...patch } : e)) });
+    if (!canEdit(state.exams.find((e) => e.id === id))) return;
+    set({ ...state, exams: state.exams.map((e) => (e.id === id ? { ...e, ...patch, group: e.group } : e)) });
     const exam = state.exams.find((e) => e.id === id);
     if (exam) remote?.putExam(exam);
   },
   deleteExam(id: string) {
+    const exam = state.exams.find((e) => e.id === id);
+    if (!exam || !canEdit(exam)) return;
     set({ ...state, exams: state.exams.filter((e) => e.id !== id) });
-    remote?.removeExam(id);
+    remote?.removeExam(exam);
   },
-  /** Marca o desmarca "He estudiado hoy" en un examen. */
+  /** Marca o desmarca "He estudiado hoy" en un examen. Solo en los personales: la racha es de cada uno. */
   toggleStudied(examId: string, today: string) {
     const exam = state.exams.find((e) => e.id === examId);
-    if (!exam) return;
+    if (!exam || exam.group) return;
     const days = exam.studyDays ?? [];
     const studied = !days.includes(today);
     const studyDays = studied ? [...days, today].sort() : days.filter((d) => d !== today);
@@ -142,28 +202,34 @@ export const actions = {
     }
   },
   addEvent(e: Omit<AgendaEvent, 'id'>) {
+    if (!canEdit(e)) return;
     const event: AgendaEvent = { ...e, id: uid() };
     set({ ...state, events: [...state.events, event] });
     remote?.putEvent(event);
   },
   updateEvent(id: string, patch: Partial<AgendaEvent>) {
-    set({ ...state, events: state.events.map((e) => (e.id === id ? { ...e, ...patch } : e)) });
+    if (!canEdit(state.events.find((e) => e.id === id))) return;
+    set({ ...state, events: state.events.map((e) => (e.id === id ? { ...e, ...patch, group: e.group } : e)) });
     const event = state.events.find((e) => e.id === id);
     if (event) remote?.putEvent(event);
   },
   deleteEvent(id: string) {
+    const event = state.events.find((e) => e.id === id);
+    if (!event || !canEdit(event)) return;
     set({ ...state, events: state.events.filter((e) => e.id !== id) });
-    remote?.removeEvent(id);
+    remote?.removeEvent(event);
   },
   /** Crea una nota y devuelve su id. */
   addNote(n: Omit<Note, 'id' | 'updatedAt'>): string {
+    if (!canEdit(n)) return '';
     const note: Note = { ...n, id: uid(), updatedAt: Date.now() };
     set({ ...state, notes: [...state.notes, note] });
     remote?.putNote(note);
     return note.id;
   },
   updateNote(id: string, patch: Partial<Omit<Note, 'id'>>) {
-    set({ ...state, notes: state.notes.map((n) => (n.id === id ? { ...n, ...patch, updatedAt: Date.now() } : n)) });
+    if (!canEdit(state.notes.find((n) => n.id === id))) return;
+    set({ ...state, notes: state.notes.map((n) => (n.id === id ? { ...n, ...patch, group: n.group, updatedAt: Date.now() } : n)) });
     const note = state.notes.find((n) => n.id === id);
     if (note) remote?.putNote(note);
   },
@@ -174,21 +240,27 @@ export const actions = {
     actions.updateNote(id, { items: note.items.map((it, i) => (i === index ? { ...it, done: !it.done } : it)) });
   },
   deleteNote(id: string) {
+    const note = state.notes.find((n) => n.id === id);
+    if (!note || !canEdit(note)) return;
     set({ ...state, notes: state.notes.filter((n) => n.id !== id) });
-    remote?.removeNote(id);
+    remote?.removeNote(note);
   },
   updateSubject(id: string, patch: Partial<Subject>) {
-    set({ ...state, subjects: state.subjects.map((s) => (s.id === id ? { ...s, ...patch } : s)) });
-    const i = state.subjects.findIndex((s) => s.id === id);
-    if (i >= 0) remote?.putSubject(state.subjects[i], i);
+    if (!canEdit(state.subjects.find((s) => s.id === id))) return;
+    set({ ...state, subjects: state.subjects.map((s) => (s.id === id ? { ...s, ...patch, group: s.group } : s)) });
+    const subject = state.subjects.find((s) => s.id === id);
+    if (subject) remote?.putSubject(subject, orderOf(subject));
   },
   addSubject(s: Omit<Subject, 'id'>) {
+    if (!canEdit(s)) return;
     const subject: Subject = { ...s, id: uid() };
     set({ ...state, subjects: [...state.subjects, subject] });
-    remote?.putSubject(subject, state.subjects.length - 1);
+    remote?.putSubject(subject, orderOf(subject));
   },
   /** Elimina la asignatura junto con sus tareas y exámenes. */
   deleteSubject(id: string) {
+    const subject = state.subjects.find((s) => s.id === id);
+    if (!subject || !canEdit(subject)) return;
     const tasks = state.tasks.filter((t) => t.subjectId === id);
     const exams = state.exams.filter((e) => e.subjectId === id);
     set({
@@ -198,21 +270,25 @@ export const actions = {
       exams: state.exams.filter((e) => e.subjectId !== id),
     });
     if (remote) {
-      remote.removeSubject(id);
-      tasks.forEach((t) => remote?.removeTask(t.id));
-      exams.forEach((e) => remote?.removeExam(e.id));
-      // Reescribe el orden para que siga siendo 0, 1, 2… en la nube
-      state.subjects.forEach((s, i) => remote?.putSubject(s, i));
+      remote.removeSubject(subject);
+      tasks.forEach((t) => remote?.removeTask(t));
+      exams.forEach((e) => remote?.removeExam(e));
+      // Reescribe el orden para que siga siendo 0, 1, 2… en la nube (solo las de su mismo sitio)
+      state.subjects.filter((s) => s.group === subject.group).forEach((s, i) => remote?.putSubject(s, i));
     }
   },
   setUserName(userName: string) {
     set({ ...state, userName });
     remote?.putProfile({ userName });
   },
+  /** Importar una copia: sustituye lo personal. Lo de los grupos no está en las copias y se conserva. */
   replaceAll(next: State) {
-    const prev = state;
-    set(next);
-    remote?.replaceAll(prev, next);
+    const prev = personalOnly(state);
+    const own = personalOnly(next);
+    const merged = { ...own, groups: state.groups } as State;
+    for (const key of LISTS) (merged[key] as Item[]) = [...(own[key] as Item[]), ...(state[key] as Item[]).filter((x) => x.group)];
+    set(merged);
+    remote?.replaceAll(prev, own);
   },
 };
 

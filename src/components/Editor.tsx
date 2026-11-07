@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { EventKind, State } from '../data/types';
-import { actions } from '../data/store';
+import { actions, canEdit, editableGroups, groupOf } from '../data/store';
+import { colorCss } from '../lib/rules';
 import { addDays } from '../lib/dates';
 import { EVENT_KINDS, kindInfo } from '../lib/events';
 import { cleanReminders, MAX_REMINDERS, optionsFor } from '../lib/reminders';
@@ -29,14 +30,30 @@ export function Editor({ req, state, today, desktop, onClose }: Props) {
   const task = req.kind === 'task' && req.id ? state.tasks.find((t) => t.id === req.id) : undefined;
   const exam = req.kind === 'exam' && req.id ? state.exams.find((e) => e.id === req.id) : undefined;
   const event = req.kind === 'event' && req.id ? state.events.find((e) => e.id === req.id) : undefined;
-  const editing = !!(task || exam || event);
+  const existing = task ?? exam ?? event;
+  const editing = !!existing;
+  // Lectores de un grupo: lo ven todo pero no pueden cambiar nada
+  const readOnly = editing && !canEdit(existing, state);
+  const targets = editableGroups(state);
+
+  // Dónde se apunta: '' = solo yo; si no, el id del grupo. Lo ya creado se queda donde está.
+  const reqSubject = state.subjects.find((s) => s.id === req.subjectId);
+  const [where, setWhere] = useState(
+    existing?.group ?? (reqSubject?.group && canEdit(reqSubject, state) ? reqSubject.group : ''),
+  );
+  const subjects = state.subjects.filter((s) => (s.group ?? '') === where);
+  const group = groupOf(state, where);
 
   // Sin asignaturas no se pueden apuntar tareas ni exámenes: se empieza por un evento
-  const [kind, setKind] = useState(!editing && !state.subjects.length ? 'event' : req.kind);
+  const [kind, setKind] = useState(!editing && !subjects.length ? 'event' : req.kind);
   const [title, setTitle] = useState(task?.title ?? exam?.title ?? event?.title ?? '');
   const [subjectId, setSubjectId] = useState(
-    task?.subjectId ?? exam?.subjectId ?? req.subjectId ?? state.subjects[0]?.id ?? '',
+    task?.subjectId ?? exam?.subjectId ?? (subjects.some((s) => s.id === req.subjectId) ? req.subjectId : subjects[0]?.id) ?? '',
   );
+  const pickWhere = (w: string) => {
+    setWhere(w);
+    setSubjectId(state.subjects.find((s) => (s.group ?? '') === w)?.id ?? '');
+  };
   const [date, setDate] = useState(task?.dueDate ?? exam?.date ?? event?.date ?? req.date ?? addDays(today, 1));
   const [notes, setNotes] = useState(task?.notes ?? event?.notes ?? '');
   const [time, setTime] = useState(exam?.time ?? '');
@@ -64,7 +81,7 @@ export function Editor({ req, state, today, desktop, onClose }: Props) {
   };
 
   const valid =
-    title.trim() !== '' && /^\d{4}-\d{2}-\d{2}$/.test(date) && (kind === 'event' || subjectId !== '');
+    !readOnly && title.trim() !== '' && /^\d{4}-\d{2}-\d{2}$/.test(date) && (kind === 'event' || subjects.some((s) => s.id === subjectId));
 
   // Con hora (eventos con hora) los avisos son "X antes"; si es de todo el día, a una hora fija de ese día o de antes
   const timed = kind === 'event' && eventTime !== '';
@@ -77,14 +94,15 @@ export function Editor({ req, state, today, desktop, onClose }: Props) {
     e.preventDefault();
     if (!valid) return;
     const t = title.trim();
+    const g = where || undefined;
     if (kind === 'task') {
       const data = { title: t, subjectId, dueDate: date, notes: notes.trim() || undefined, reminders: cleanReminders(chosen, false) };
       if (task) actions.updateTask(task.id, data);
-      else actions.addTask(data);
+      else actions.addTask({ ...data, group: g });
     } else if (kind === 'exam') {
       const data = { title: t, subjectId, date, time: time.trim() || undefined, prep, reminders: cleanReminders(chosen, false) };
       if (exam) actions.updateExam(exam.id, data);
-      else actions.addExam(data);
+      else actions.addExam({ ...data, group: g });
     } else {
       const data = {
         title: t,
@@ -97,12 +115,13 @@ export function Editor({ req, state, today, desktop, onClose }: Props) {
         reminders: cleanReminders(chosen, timed),
       };
       if (event) actions.updateEvent(event.id, data);
-      else actions.addEvent(data);
+      else actions.addEvent({ ...data, group: g });
     }
     onClose();
   };
 
   const remove = () => {
+    if (readOnly) return;
     if (!confirmDelete) {
       setConfirmDelete(true);
       return;
@@ -127,12 +146,44 @@ export function Editor({ req, state, today, desktop, onClose }: Props) {
       >
         <form onSubmit={submit} className="form">
           <div className="form__head">
-            <h2 id="editor-title" className="form__title">{HEADING[kind][editing ? 1 : 0]}</h2>
+            <h2 id="editor-title" className="form__title">{readOnly ? KIND_LABEL[kind] : HEADING[kind][editing ? 1 : 0]}</h2>
             <button type="button" className="icon-btn" onClick={onClose} aria-label="Cerrar">
               <Icon name="cerrar" size={18} />
             </button>
           </div>
 
+          {readOnly && (
+            <p className="readonly-note" role="note">
+              Solo lectura: es del grupo «{group?.name}» y quien lo administra no te ha dado permiso para editar.
+            </p>
+          )}
+
+          {!editing && targets.length > 0 && (
+            <fieldset className="field">
+              <legend className="field__label">¿Dónde?</legend>
+              <div className="chips" role="radiogroup" aria-label="Dónde se apunta">
+                {[{ id: '', name: 'Solo yo', color: 'accent' }, ...targets].map((g) => {
+                  const on = g.id === where;
+                  return (
+                    <button
+                      key={g.id || 'yo'}
+                      type="button"
+                      role="radio"
+                      aria-checked={on}
+                      className={`chip${on ? ' chip--solid' : ''}`}
+                      style={on ? { background: colorCss(g.color) } : undefined}
+                      onClick={() => pickWhere(g.id)}
+                    >
+                      <span className="chip__text">{g.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </fieldset>
+          )}
+          {editing && group && !readOnly && <p className="group-tag">En el grupo «{group.name}»</p>}
+
+          <fieldset className="form__fields" disabled={readOnly}>
           {!editing && (
             <div className="segmented" role="radiogroup" aria-label="Tipo">
               {(['task', 'exam', 'event'] as const).map((k) => (
@@ -190,15 +241,15 @@ export function Editor({ req, state, today, desktop, onClose }: Props) {
           {kind !== 'event' && (
             <fieldset className="field">
               <legend className="field__label">Asignatura</legend>
-              {state.subjects.length ? (
+              {subjects.length ? (
                 <div className="chips">
-                  {state.subjects.map((s) => (
+                  {subjects.map((s) => (
                     <SubjectChip key={s.id} subject={s} solid={s.id === subjectId} onClick={() => setSubjectId(s.id)} />
                   ))}
                 </div>
               ) : (
                 <p className="backup__text">
-                  Aún no tienes asignaturas.{' '}
+                  {group ? 'Este grupo aún no tiene asignaturas.' : 'Aún no tienes asignaturas.'}{' '}
                   <a className="inline-link" href="#/ajustes" onClick={onClose}>
                     Añádelas en Ajustes
                   </a>{' '}
@@ -309,20 +360,23 @@ export function Editor({ req, state, today, desktop, onClose }: Props) {
               </p>
             )}
           </fieldset>
+          </fieldset>
 
           <div className="form__actions">
-            {editing && (
+            {editing && !readOnly && (
               <button type="button" className={`btn btn--secondary${confirmDelete ? ' btn--danger' : ''}`} onClick={remove}>
                 {confirmDelete ? 'Toca otra vez para borrar' : 'Borrar'}
               </button>
             )}
             <span className="spacer" />
             <button type="button" className="btn btn--secondary" onClick={onClose}>
-              Cancelar
+              {readOnly ? 'Cerrar' : 'Cancelar'}
             </button>
-            <button type="submit" className="btn" disabled={!valid}>
-              {editing ? 'Guardar' : 'Añadir'}
-            </button>
+            {!readOnly && (
+              <button type="submit" className="btn" disabled={!valid}>
+                {editing ? 'Guardar' : 'Añadir'}
+              </button>
+            )}
           </div>
         </form>
       </div>

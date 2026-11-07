@@ -45,6 +45,8 @@ export function StudyStreak({ studyLog, today }: { studyLog: string[]; today: st
 /** Botón "He estudiado hoy" de un examen. */
 export function StudiedButton({ exam, today }: { exam: Exam; today: string }) {
   const on = !!exam.studyDays?.includes(today);
+  // La racha es personal: en los exámenes de un grupo no se apunta
+  if (exam.group) return null;
   return (
     <button
       type="button"

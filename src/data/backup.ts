@@ -1,6 +1,7 @@
 // Copias de seguridad: exportar el estado a un .json e importarlo validando cada campo.
 import type { AgendaEvent, Exam, Note, NoteItem, State, Subject, Task } from './types';
 import { initialState, isSubjectColor } from './defaults';
+import { personalOnly } from './store';
 import { todayISO } from '../lib/dates';
 import { EVENT_KINDS } from '../lib/events';
 import { cleanReminders } from '../lib/reminders';
@@ -14,7 +15,10 @@ const KINDS = new Set<string>(EVENT_KINDS.map((k) => k.kind));
 const HOUR = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 export function downloadBackup(state: State) {
-  const payload = { app: 'nocta', exportedAt: new Date().toISOString(), data: state };
+  // Solo lo personal: lo de los grupos es de todo el grupo y no va en la copia de una persona
+  const { groups: _groups, ...data } = personalOnly(state);
+  void _groups;
+  const payload = { app: 'nocta', exportedAt: new Date().toISOString(), data };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -65,6 +69,7 @@ export function parseBackup(text: string): State {
     events,
     studyLog,
     notes,
+    groups: [],
   };
 }
 

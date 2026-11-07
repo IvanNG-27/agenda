@@ -65,6 +65,8 @@ function whenText(fireAt: number, date: string, time?: string): string {
 }
 
 const safeId = (s: string) => s.replace(/[^A-Za-z0-9-]/g, '-').slice(0, 60);
+/** Lo de un grupo lleva su id delante: así no choca con algo personal que tenga el mismo id */
+const keyId = (x: { id: string; group?: string }) => (x.group ? `${safeId(x.group)}-${safeId(x.id)}` : safeId(x.id));
 const code = (m: number) => (m < 0 ? `m${-m}` : `p${m}`);
 
 /**
@@ -80,7 +82,7 @@ export function upcomingReminders(state: State, from: number): Reminder[] {
       const at = instant(date, (time ? toMinutes(time) : 0) + m);
       if (at < from) continue;
       out.push({
-        key: `${kind}_${safeId(id)}_${code(m)}`,
+        key: `${kind}_${id}_${code(m)}`,
         at,
         title,
         body: [whenText(at, date, time), ...extra].filter(Boolean).join(' · '),
@@ -91,10 +93,10 @@ export function upcomingReminders(state: State, from: number): Reminder[] {
 
   for (const t of state.tasks) {
     if (t.done) continue;
-    add('task', t.id, t.dueDate, undefined, t.reminders, `📚 Entrega: ${t.title}`, [subjects.get(t.subjectId)?.name ?? '']);
+    add('task', keyId(t), t.dueDate, undefined, t.reminders, `📚 Entrega: ${t.title}`, [subjects.get(t.subjectId)?.name ?? '']);
   }
   for (const e of state.exams) {
-    add('exam', e.id, e.date, undefined, e.reminders, `📝 Examen: ${e.title}`, [subjects.get(e.subjectId)?.name ?? '', e.time ?? '']);
+    add('exam', keyId(e), e.date, undefined, e.reminders, `📝 Examen: ${e.title}`, [subjects.get(e.subjectId)?.name ?? '', e.time ?? '']);
   }
   for (const ev of state.events) {
     // Los anuales, en su próxima fecha (la de este año si aún no ha pasado el aviso, si no la del siguiente)
@@ -104,11 +106,11 @@ export function upcomingReminders(state: State, from: number): Reminder[] {
     const info = kindInfo(ev.kind);
     const extra = (d: string) => [ev.place ?? '', years(d) ? (ev.kind === 'cumple' ? `cumple ${years(d)}` : `${years(d)} años`) : ''];
     const before = out.length;
-    add('event', ev.id, date, ev.time, ev.reminders, `${info.emoji} ${ev.title}`, extra(date), !!ev.yearly);
+    add('event', keyId(ev), date, ev.time, ev.reminders, `${info.emoji} ${ev.title}`, extra(date), !!ev.yearly);
     // Si en un anual todos los avisos de este año ya pasaron, se programan los del año que viene
     if (ev.yearly && out.length === before && ev.reminders?.length) {
       date = nextOccurrence(ev, `${Number(date.slice(0, 4)) + 1}${date.slice(4)}`);
-      if (date) add('event', ev.id, date, ev.time, ev.reminders, `${info.emoji} ${ev.title}`, extra(date), true);
+      if (date) add('event', keyId(ev), date, ev.time, ev.reminders, `${info.emoji} ${ev.title}`, extra(date), true);
     }
   }
   return out.sort((a, b) => a.at - b.at);

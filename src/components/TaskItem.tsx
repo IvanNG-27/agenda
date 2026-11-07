@@ -1,6 +1,6 @@
 import type { DragEvent } from 'react';
 import type { Subject, Task } from '../data/types';
-import { actions } from '../data/store';
+import { actions, canEdit } from '../data/store';
 import { relativeDate } from '../lib/dates';
 import { colorVar, isUrgent } from '../lib/rules';
 import { Icon } from './Icons';
@@ -20,6 +20,9 @@ type Props = {
 export function TaskItem({ task, subject, today, raised, extra, draggable }: Props) {
   const { openEditor } = useUI();
   const urgent = isUrgent(task, today);
+  // Lectores de un grupo: sin marcar ni arrastrar
+  const editable = canEdit(task);
+  draggable = draggable && editable;
   const meta = [subject?.name, task.notes?.split('\n')[0], extra].filter(Boolean).join(' · ');
 
   const onDragStart = (e: DragEvent) => {
@@ -39,6 +42,7 @@ export function TaskItem({ task, subject, today, raised, extra, draggable }: Pro
         className="checkbox"
         role="checkbox"
         aria-checked={task.done}
+        disabled={!editable}
         aria-label={task.done ? `Desmarcar ${task.title}` : `Marcar ${task.title} como hecha`}
         onClick={() => actions.toggleTask(task.id)}
       >

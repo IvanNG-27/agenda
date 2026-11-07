@@ -8,6 +8,15 @@ export type Release = { version: string; changes: string[] };
 
 export const CHANGELOG: Release[] = [
   {
+    version: '1.8.0',
+    changes: [
+      '👥 Nuevo: grupos. Comparte un calendario con tu clase, tu familia o tus amigos: asignaturas, tareas, exámenes, eventos y notas.',
+      'Crea uno en Ajustes → Grupos e invita con un código. Quien entra puede verlo todo y tú decides quién puede editar.',
+      'Al apuntar algo, elige si es solo para ti o para uno de tus grupos.',
+      'Los grupos están en la versión web (también en el móvil) con la sesión iniciada.',
+    ],
+  },
+  {
     version: '1.7.0',
     changes: [
       '🎨 Más colores para tus asignaturas: ahora hay 24 para elegir.',

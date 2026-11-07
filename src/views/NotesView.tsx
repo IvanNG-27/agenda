@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import type { Note, NoteItem, State } from '../data/types';
-import { actions } from '../data/store';
+import { actions, canEdit, editableGroups, groupOf } from '../data/store';
 import { MAX_NOTE_ITEMS } from '../data/backup';
 import { SectionHeader } from '../components/Common';
 import { Icon } from '../components/Icons';
@@ -33,7 +33,7 @@ export function NotesView({ state, desktop }: Props) {
   const grid = (list: Note[]) => (
     <div className="notes">
       {list.map((note) => (
-        <NoteCard key={note.id} note={note} onOpen={() => setOpen(note.id)} />
+        <NoteCard key={note.id} note={note} state={state} onOpen={() => setOpen(note.id)} />
       ))}
     </div>
   );
@@ -96,6 +96,7 @@ export function NotesView({ state, desktop }: Props) {
         <NoteEditor
           key={open}
           note={open === 'nueva' ? undefined : state.notes.find((x) => x.id === open)}
+          state={state}
           desktop={desktop}
           onClose={close}
         />
@@ -114,8 +115,10 @@ const edited = (t: number) => {
     : d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: d.getFullYear() === today.getFullYear() ? undefined : 'numeric' });
 };
 
-function NoteCard({ note, onOpen }: { note: Note; onOpen: () => void }) {
+function NoteCard({ note, state, onOpen }: { note: Note; state: State; onOpen: () => void }) {
   const items = note.items ?? [];
+  const group = groupOf(state, note.group);
+  const editable = canEdit(note, state);
   const style = note.color ? { background: colorCss(note.color), color: inkOn(note.color) } : undefined;
   const onKey = (e: KeyboardEvent) => {
     if (e.key === 'Enter' || e.key === ' ') {
@@ -149,6 +152,7 @@ function NoteCard({ note, onOpen }: { note: Note; onOpen: () => void }) {
                 className="note-check"
                 role="checkbox"
                 aria-checked={it.done}
+                disabled={!editable}
                 aria-label={it.done ? `Desmarcar ${it.text}` : `Marcar ${it.text}`}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -163,13 +167,20 @@ function NoteCard({ note, onOpen }: { note: Note; onOpen: () => void }) {
           {items.length > PREVIEW_ITEMS && <li className="note-card__more">+{items.length - PREVIEW_ITEMS} más</li>}
         </ul>
       )}
-      <p className="note-card__date">{edited(note.updatedAt)}</p>
+      <p className="note-card__date">
+        {group && <span className="note-card__group">{group.name} · </span>}
+        {edited(note.updatedAt)}
+      </p>
     </article>
   );
 }
 
 /** Crear o editar una nota. Hoja inferior en móvil, diálogo en escritorio. */
-function NoteEditor({ note, desktop, onClose }: { note?: Note; desktop: boolean; onClose: () => void }) {
+function NoteEditor({ note, state, desktop, onClose }: { note?: Note; state: State; desktop: boolean; onClose: () => void }) {
+  const readOnly = !!note && !canEdit(note, state);
+  const targets = editableGroups(state);
+  const [where, setWhere] = useState('');
+  const group = groupOf(state, note?.group);
   const [title, setTitle] = useState(note?.title ?? '');
   const [text, setText] = useState(note?.text ?? '');
   const [items, setItems] = useState<NoteItem[]>(note?.items ?? []);
@@ -210,17 +221,19 @@ function NoteEditor({ note, desktop, onClose }: { note?: Note; desktop: boolean;
   const empty = !clean.title && !clean.text && !clean.items.length;
 
   const save = () => {
+    if (readOnly) return onClose();
     const data = { ...clean, items: clean.items.length ? clean.items : undefined };
     if (note) {
       if (empty) actions.deleteNote(note.id); // vaciarla del todo es como borrarla
       else actions.updateNote(note.id, data);
     } else if (!empty) {
-      actions.addNote(data);
+      actions.addNote({ ...data, group: where || undefined });
     }
     onClose();
   };
 
   const remove = () => {
+    if (readOnly) return;
     if (!confirmDelete) {
       setConfirmDelete(true);
       return;
@@ -247,11 +260,12 @@ function NoteEditor({ note, desktop, onClose }: { note?: Note; desktop: boolean;
           }}
         >
           <div className="form__head">
-            <h2 id="nota-title" className="form__title">{note ? 'Editar nota' : 'Nueva nota'}</h2>
+            <h2 id="nota-title" className="form__title">{readOnly ? 'Nota' : note ? 'Editar nota' : 'Nueva nota'}</h2>
             <button
               type="button"
               className={`icon-btn note-editor__pin${pinned ? ' is-active' : ''}`}
               aria-pressed={pinned}
+              disabled={readOnly}
               aria-label={pinned ? 'Quitar de fijadas' : 'Fijar arriba'}
               title={pinned ? 'Quitar de fijadas' : 'Fijar arriba'}
               onClick={() => setPinned(!pinned)}
@@ -263,6 +277,34 @@ function NoteEditor({ note, desktop, onClose }: { note?: Note; desktop: boolean;
             </button>
           </div>
 
+          {readOnly && (
+            <p className="readonly-note" role="note">
+              Solo lectura: es del grupo «{group?.name}» y quien lo administra no te ha dado permiso para editar.
+            </p>
+          )}
+          {note && group && !readOnly && <p className="group-tag">En el grupo «{group.name}»</p>}
+          {!note && targets.length > 0 && (
+            <div className="chips" role="radiogroup" aria-label="Dónde se apunta">
+              {[{ id: '', name: 'Solo yo', color: 'accent' }, ...targets].map((g) => {
+                const on = g.id === where;
+                return (
+                  <button
+                    key={g.id || 'yo'}
+                    type="button"
+                    role="radio"
+                    aria-checked={on}
+                    className={`chip${on ? ' chip--solid' : ''}`}
+                    style={on ? { background: colorCss(g.color) } : undefined}
+                    onClick={() => setWhere(g.id)}
+                  >
+                    <span className="chip__text">{g.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          <fieldset className="form__fields" disabled={readOnly}>
           <input
             ref={titleRef}
             className="input note-editor__title"
@@ -337,20 +379,23 @@ function NoteEditor({ note, desktop, onClose }: { note?: Note; desktop: boolean;
             <legend className="field__label">Color</legend>
             <Swatches label="Color de la nota" value={color} onChange={setColor} allowNone />
           </fieldset>
+          </fieldset>
 
           <div className="form__actions">
-            {note && (
+            {note && !readOnly && (
               <button type="button" className={`btn btn--secondary${confirmDelete ? ' btn--danger' : ''}`} onClick={remove}>
                 {confirmDelete ? 'Toca otra vez para borrar' : 'Borrar'}
               </button>
             )}
             <span className="spacer" />
             <button type="button" className="btn btn--secondary" onClick={onClose}>
-              Cancelar
+              {readOnly ? 'Cerrar' : 'Cancelar'}
             </button>
-            <button type="submit" className="btn" disabled={!note && empty}>
-              {note ? 'Guardar' : 'Añadir'}
-            </button>
+            {!readOnly && (
+              <button type="submit" className="btn" disabled={!note && empty}>
+                {note ? 'Guardar' : 'Añadir'}
+              </button>
+            )}
           </div>
         </form>
       </div>

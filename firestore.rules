@@ -68,6 +68,63 @@ service cloud.firestore {
         && d.updatedAt is int;
     }
 
+    // ---------- Grupos ----------
+
+    function memberPath(gid) {
+      return /databases/$(database)/documents/groups/$(gid)/members/$(request.auth.uid);
+    }
+
+    function isMember(gid) {
+      return request.auth != null && exists(memberPath(gid));
+    }
+
+    // Quien administra o tiene permiso de edición
+    function canWrite(gid) {
+      return isMember(gid) && get(memberPath(gid)).data.role in ['owner', 'editor'];
+    }
+
+    function isGroupOwner(gid) {
+      return request.auth != null && get(/databases/$(database)/documents/groups/$(gid)).data.ownerId == request.auth.uid;
+    }
+
+    function validColor(c) {
+      return c is string && (c.matches('^subj-[a-z]{1,20}$') || c.matches('^#[0-9a-f]{6}$'));
+    }
+
+    function validGroup(d) {
+      return d.keys().hasOnly(['name', 'color', 'ownerId', 'createdAt'])
+        && d.keys().hasAll(['name', 'color', 'ownerId', 'createdAt'])
+        && text(d.name, 60)
+        && validColor(d.color)
+        && d.ownerId is string
+        && d.createdAt is int;
+    }
+
+    function validMember(d) {
+      return d.keys().hasOnly(['role', 'name', 'joinedAt', 'code'])
+        && d.keys().hasAll(['role', 'name', 'joinedAt'])
+        && d.role in ['owner', 'editor', 'viewer']
+        && text(d.name, 60)
+        && d.joinedAt is int
+        && (!('code' in d) || d.code is string);
+    }
+
+    // Código de invitación: existe, es de este grupo y no ha caducado
+    function validInvite(code, gid) {
+      let inv = get(/databases/$(database)/documents/invites/$(code));
+      return code.matches('^[A-HJKMNP-Z2-9]{10}$') && inv.data.groupId == gid && inv.data.expires > request.time.toMillis();
+    }
+
+    // Lista de grupos de una persona (users/{uid}/groups/{gid}); invite solo la guarda quien administra
+    function validGroupLink(d) {
+      return d.keys().hasOnly(['joinedAt', 'invite'])
+        && (!('joinedAt' in d) || d.joinedAt is int)
+        && (!('invite' in d) || (d.invite is map
+          && d.invite.keys().hasOnly(['code', 'expires'])
+          && d.invite.code is string && d.invite.code.size() <= 12
+          && d.invite.expires is int));
+    }
+
     function validProfile(d) {
       return d.keys().hasOnly(['userName', 'studyLog'])
         && (!('userName' in d) || (d.userName is string && d.userName.size() <= 40))
@@ -154,7 +211,80 @@ service cloud.firestore {
         allow read, delete: if isOwner(uid);
         allow create, update: if isOwner(uid) && validDevice(request.resource.data);
       }
+      match /groups/{gid} {
+        allow read, delete: if isOwner(uid);
+        allow create, update: if isOwner(uid) && validGroupLink(request.resource.data);
+      }
       // Cualquier otra colección bajo users/{uid} queda cerrada
+    }
+
+    // Calendarios compartidos. Leer: sus miembros. Añadir y cambiar lo de dentro: quien administra y los editores.
+    match /groups/{gid} {
+      allow read: if isMember(gid) || (request.auth != null && resource.data.ownerId == request.auth.uid);
+      allow create: if request.auth != null && request.resource.data.ownerId == request.auth.uid && validGroup(request.resource.data);
+      allow update: if isGroupOwner(gid)
+        && validGroup(request.resource.data)
+        && request.resource.data.ownerId == resource.data.ownerId
+        && request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if isGroupOwner(gid);
+
+      match /members/{uid} {
+        allow read: if isMember(gid);
+        // Quien crea el grupo se apunta como administrador; los demás, solo como lectores y con un código válido
+        allow create: if request.auth != null && request.auth.uid == uid && validMember(request.resource.data) && (
+          (request.resource.data.role == 'owner' && isGroupOwner(gid))
+          || (request.resource.data.role == 'viewer' && 'code' in request.resource.data
+              && validInvite(request.resource.data.code, gid))
+        );
+        // Solo quien administra cambia papeles (editor o lector), y nunca el suyo
+        allow update: if isGroupOwner(gid) && uid != request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role'])
+          && request.resource.data.role in ['editor', 'viewer'];
+        // Quien administra puede sacar a cualquiera; cada uno puede salir (salvo quien administra: borra el grupo)
+        allow delete: if isGroupOwner(gid) || (request.auth != null && request.auth.uid == uid && resource.data.role != 'owner');
+      }
+
+      match /subjects/{id} {
+        allow read: if isMember(gid);
+        allow delete: if canWrite(gid);
+        allow create, update: if canWrite(gid) && validSubject(request.resource.data, id);
+      }
+      match /tasks/{id} {
+        allow read: if isMember(gid);
+        allow delete: if canWrite(gid);
+        allow create, update: if canWrite(gid) && validTask(request.resource.data, id);
+      }
+      match /exams/{id} {
+        allow read: if isMember(gid);
+        allow delete: if canWrite(gid);
+        allow create, update: if canWrite(gid) && validExam(request.resource.data, id);
+      }
+      match /events/{id} {
+        allow read: if isMember(gid);
+        allow delete: if canWrite(gid);
+        allow create, update: if canWrite(gid) && validEvent(request.resource.data, id);
+      }
+      match /notes/{id} {
+        allow read: if isMember(gid);
+        allow delete: if canWrite(gid);
+        allow create, update: if canWrite(gid) && validNote(request.resource.data, id);
+      }
+    }
+
+    // Códigos de invitación: se pueden consultar por el código exacto (quien lo sabe), nunca listar.
+    // Solo quien administra el grupo los crea (como mucho 8 días) y los borra.
+    match /invites/{code} {
+      allow get: if request.auth != null;
+      allow list: if false;
+      allow create: if request.auth != null
+        && code.matches('^[A-HJKMNP-Z2-9]{10}$')
+        && request.resource.data.keys().hasOnly(['groupId', 'expires', 'createdBy'])
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.groupId is string
+        && isGroupOwner(request.resource.data.groupId)
+        && request.resource.data.expires is int
+        && request.resource.data.expires <= request.time.toMillis() + 8 * 86400000;
+      allow delete: if request.auth != null && isGroupOwner(resource.data.groupId);
     }
 
     // Recordatorios: colección única para que el envío programado los busque por fecha sin índices especiales.

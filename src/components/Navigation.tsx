@@ -1,4 +1,4 @@
-import type { State } from '../data/types';
+import type { State, Subject } from '../data/types';
 import { colorVar, pendingCount } from '../lib/rules';
 import { href, type Route } from '../ui';
 import { Icon, type IconName } from './Icons';
@@ -28,6 +28,26 @@ const activeName = (r: Route, desktop: boolean): Route['name'] => {
 
 export function Sidebar({ route, state }: { route: Route; state: State }) {
   const active = activeName(route, true);
+  // Las personales primero; las de cada grupo, bajo su nombre
+  const mine = state.subjects.filter((s) => !s.group);
+  const row = (s: Subject) => {
+    const current = route.name === 'asignatura' && route.id === s.id;
+    return (
+      <li key={s.id}>
+        <a
+          className={`subjects__row${current ? ' is-active' : ''}`}
+          href={href({ name: 'asignatura', id: s.id })}
+          title={s.name}
+          aria-current={current ? 'page' : undefined}
+        >
+          <span className="dot dot--10" style={{ background: colorVar(s) }} />
+          <span className="subjects__name">{s.name}</span>
+          <span className="subjects__count">{pendingCount(state.tasks, s.id)}</span>
+        </a>
+      </li>
+    );
+  };
+
   return (
     <nav className="sidebar" aria-label="Principal">
       <div className="logo">Nocta</div>
@@ -47,31 +67,24 @@ export function Sidebar({ route, state }: { route: Route; state: State }) {
       </ul>
       <h2 className="section">Asignaturas</h2>
       <ul className="subjects">
-        {state.subjects.length === 0 && (
+        {mine.length === 0 && (
           <li>
             <a className="subjects__row subjects__row--add" href={href({ name: 'ajustes' })}>
               + Añadir asignaturas
             </a>
           </li>
         )}
-        {state.subjects.map((s) => {
-          const current = route.name === 'asignatura' && route.id === s.id;
-          return (
-            <li key={s.id}>
-              <a
-                className={`subjects__row${current ? ' is-active' : ''}`}
-                href={href({ name: 'asignatura', id: s.id })}
-                title={s.name}
-                aria-current={current ? 'page' : undefined}
-              >
-                <span className="dot dot--10" style={{ background: colorVar(s) }} />
-                <span className="subjects__name">{s.name}</span>
-                <span className="subjects__count">{pendingCount(state.tasks, s.id)}</span>
-              </a>
-            </li>
-          );
-        })}
+        {mine.map(row)}
       </ul>
+      {state.groups.map((g) => {
+        const list = state.subjects.filter((s) => s.group === g.id);
+        return list.length ? (
+          <div key={g.id}>
+            <h2 className="section">{g.name}</h2>
+            <ul className="subjects">{list.map(row)}</ul>
+          </div>
+        ) : null;
+      })}
       <a className={`menu__item menu__item--bottom${active === 'ajustes' ? ' is-active' : ''}`} href={href({ name: 'ajustes' })}>
         <Icon name="ajustes" size={18} />
         Ajustes

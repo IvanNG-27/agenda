@@ -2,7 +2,9 @@ export type Subject = {
   id: string;
   name: string; // "Acceso a Datos"
   short: string; // "AD"
-  color: string; // token subj-*
+  color: string; // token subj-* o #rrggbb
+  /** Solo en el dispositivo: id del grupo en el que vive (no se guarda en la nube). Sin él, es personal. */
+  group?: string;
 };
 
 export type Task = {
@@ -13,6 +15,8 @@ export type Task = {
   done: boolean;
   doneAt?: string; // ISO yyyy-mm-dd
   notes?: string;
+  /** Solo en el dispositivo: id del grupo en el que vive (no se guarda en la nube). Sin él, es personal. */
+  group?: string;
   /** Recordatorios: minutos respecto al inicio (la hora, o las 00:00 si es de todo el día). Ver lib/reminders.ts */
   reminders?: number[];
 };
@@ -26,6 +30,8 @@ export type Exam = {
   prep: number; // 0–100, % de repaso
   /** Días (ISO) en los que se marcó "He estudiado hoy" para este examen */
   studyDays?: string[];
+  /** Solo en el dispositivo: id del grupo en el que vive (no se guarda en la nube). Sin él, es personal. */
+  group?: string;
   /** Recordatorios: minutos respecto al inicio (la hora, o las 00:00 si es de todo el día). Ver lib/reminders.ts */
   reminders?: number[];
 };
@@ -43,6 +49,8 @@ export type AgendaEvent = {
   notes?: string;
   /** Se repite cada año el mismo día (cumpleaños, aniversarios…) */
   yearly?: boolean;
+  /** Solo en el dispositivo: id del grupo en el que vive (no se guarda en la nube). Sin él, es personal. */
+  group?: string;
   /** Recordatorios: minutos respecto al inicio (la hora, o las 00:00 si es de todo el día). Ver lib/reminders.ts */
   reminders?: number[];
 };
@@ -57,6 +65,25 @@ export type State = {
   /** Todos los días en los que se ha estudiado. Se conserva aunque se borren exámenes: de aquí sale la mejor racha. */
   studyLog: string[];
   notes: Note[];
+  /** Grupos de los que forma parte (solo con sesión iniciada) */
+  groups: Group[];
+};
+
+/** owner: quien lo creó (administra) · editor: puede añadir y cambiar · viewer: solo ve */
+export type GroupRole = 'owner' | 'editor' | 'viewer';
+export type GroupMember = { uid: string; name: string; role: GroupRole };
+
+/** Calendario compartido. Lo que hay dentro (asignaturas, tareas…) va en las listas normales con `group`. */
+export type Group = {
+  id: string;
+  name: string;
+  color: string;
+  ownerId: string;
+  /** Papel de esta persona en el grupo */
+  role: GroupRole;
+  members: GroupMember[];
+  /** Solo lo ve quien administra: código de invitación vigente */
+  invite?: { code: string; expires: number };
 };
 
 export type NoteItem = { text: string; done: boolean };
@@ -72,4 +99,6 @@ export type Note = {
   /** Fijada arriba del todo */
   pinned?: boolean;
   updatedAt: number; // ms
+  /** Solo en el dispositivo: id del grupo en el que vive (no se guarda en la nube). Sin él, es personal. */
+  group?: string;
 };

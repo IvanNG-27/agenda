@@ -6,6 +6,14 @@
 //   users/{uid}/tasks/{id}      → Task
 //   users/{uid}/exams/{id}      → Exam
 //   users/{uid}/events/{id}     → AgendaEvent
+//   users/{uid}/notes/{id}      → Note
+//   users/{uid}/groups/{gid}    → { joinedAt, invite? }   (grupos de los que forma parte; invite solo si administra)
+//
+// Grupos (calendarios compartidos):
+//   groups/{gid}                → { name, color, ownerId, createdAt }
+//   groups/{gid}/members/{uid}  → { role: owner|editor|viewer, name, joinedAt, code? }
+//   groups/{gid}/{subjects|tasks|exams|events|notes}/{id}   → lo mismo que en users/, compartido
+//   invites/{código}            → { groupId, expires, createdBy }   (quien conoce el código puede unirse como lector)
 //
 // Cada cambio local se aplica al momento en el store y además se escribe en Firestore. Firestore guarda
 // una copia en el dispositivo (IndexedDB), así que sin conexión los cambios esperan y se suben al volver.
@@ -32,7 +40,9 @@ import {
   collection,
   connectFirestoreEmulator,
   deleteDoc,
+  deleteField,
   doc,
+  getDoc,
   getDocFromServer,
   getDocsFromServer,
   initializeFirestore,
@@ -42,6 +52,7 @@ import {
   query,
   setDoc,
   terminate,
+  updateDoc,
   where,
   writeBatch,
   type DocumentData,
@@ -50,10 +61,23 @@ import {
   type SnapshotMetadata,
 } from 'firebase/firestore';
 import { deleteToken, getMessaging, getToken, isSupported } from 'firebase/messaging';
-import { applyRemote, getState, resetLocal, setRemote, subscribeStore, type Remote } from '../data/store';
+import {
+  applyGroup,
+  applyGroupList,
+  applyRemote,
+  dropGroup,
+  getState,
+  personalOnly,
+  resetLocal,
+  setRemote,
+  subscribeStore,
+  type ListKey,
+  type Remote,
+} from '../data/store';
 import { upcomingReminders } from '../lib/reminders';
 import { cleanDays, cleanEvent, cleanExam, cleanNote, cleanSubject, cleanTask } from '../data/backup';
-import type { State } from '../data/types';
+import type { GroupMember, GroupRole, State } from '../data/types';
+import { isSubjectColor } from '../data/defaults';
 import { appCheckSiteKey, firebaseConfig, useEmulator, vapidKey } from './config';
 import { getSyncStatus, messageFor, setSyncStatus } from './index';
 
@@ -160,11 +184,16 @@ export async function deleteAccount() {
   if (Date.now() - last > 4 * 60_000) await reauthenticateWithPopup(u, new GoogleAuthProvider());
 
   await disablePushHere();
+  // Los grupos que administra se borran enteros; de los demás, sale
+  for (const g of getState().groups) {
+    if (g.role === 'owner') await deleteGroup(g.id);
+    else await leaveGroup(g.id);
+  }
   stop();
   try {
     const base = doc(db, 'users', u.uid);
     const ops: BatchOp[] = [];
-    for (const name of ['tasks', 'exams', 'events', 'subjects', 'notes', 'devices']) {
+    for (const name of ['tasks', 'exams', 'events', 'subjects', 'notes', 'devices', 'groups']) {
       const snap = await getDocsFromServer(collection(base, name));
       snap.docs.forEach((d) => ops.push((b) => b.delete(d.ref)));
     }
@@ -240,7 +269,8 @@ async function mergeOrSignOut(uid: string, local: State, owner: string | null) {
  * Primera vez en este dispositivo: sube lo que la cuenta aún no tiene (tareas, exámenes y asignaturas que
  * no existen en la nube). Lo que ya está en la nube se respeta. Así no se pierde nada de ningún lado.
  */
-async function merge(uid: string, local: State) {
+async function merge(uid: string, all: State) {
+  const local = personalOnly(all); // lo de los grupos ya vive en cada grupo
   const base = doc(db, 'users', uid);
   const [tasks, exams, events, notes, subjects, profile] = await Promise.all([
     getDocsFromServer(collection(base, 'tasks')),
@@ -341,8 +371,223 @@ function listen(u: User) {
       onError,
     ),
     subscribeStore(() => scheduleReminderSync(u.uid)),
+    // Grupos de los que forma parte: se escucha cada uno mientras siga en esta lista
+    onSnapshot(
+      collection(base, 'groups'),
+      (snap) => {
+        if (snap.metadata.fromCache && snap.empty) return;
+        mirror = new Map(snap.docs.map((d) => [d.id, d.data()]));
+        for (const gid of mirror.keys()) if (!groupSubs.has(gid)) watchGroup(u.uid, gid);
+        for (const gid of [...groupSubs.keys()]) if (!mirror.has(gid)) forgetGroup(gid);
+        // Puede haber cambiado el código de invitación (está aquí, no en el grupo)
+        for (const g of getState().groups) {
+          const invite = cleanInvite(mirror.get(g.id)?.invite);
+          if (JSON.stringify(invite) !== JSON.stringify(g.invite)) applyGroup({ ...g, invite });
+        }
+      },
+      onError,
+    ),
   );
   void refreshPush();
+}
+
+// ---------- Grupos ----------
+
+const LIST_KEYS: ListKey[] = ['subjects', 'tasks', 'exams', 'events', 'notes'];
+const CLEAN: Record<ListKey, (d: Record<string, unknown>) => unknown> = {
+  subjects: cleanSubject,
+  tasks: cleanTask,
+  exams: cleanExam,
+  events: cleanEvent,
+  notes: cleanNote,
+};
+const ROLES: GroupRole[] = ['owner', 'editor', 'viewer'];
+
+let groupSubs = new Map<string, (() => void)[]>();
+let mirror = new Map<string, DocumentData>();
+
+function cleanInvite(v: unknown): { code: string; expires: number } | undefined {
+  const i = v as { code?: unknown; expires?: unknown } | undefined;
+  return i && typeof i.code === 'string' && typeof i.expires === 'number' && i.expires > Date.now() ? { code: i.code, expires: i.expires } : undefined;
+}
+
+/** Escucha un grupo: su ficha, sus miembros y todo lo que hay dentro. */
+function watchGroup(uid: string, gid: string) {
+  const g = doc(db, 'groups', gid);
+  let info: { name: string; color: string; ownerId: string } | null = null;
+  let members: GroupMember[] | null = null;
+  const publish = () => {
+    const me = members?.find((m) => m.uid === uid);
+    if (!info || !members || !me) return;
+    applyGroup({ id: gid, ...info, role: me.role, members, invite: me.role === 'owner' ? cleanInvite(mirror.get(gid)?.invite) : undefined });
+  };
+  // Sin permiso (le han sacado o se ha borrado el grupo): se olvida en este dispositivo y en su lista
+  const lost = (err?: unknown) => {
+    const code = (err as { code?: string } | undefined)?.code;
+    if (err && code !== 'permission-denied' && code !== 'not-found') return onError(err);
+    forgetGroup(gid);
+    void deleteDoc(doc(db, 'users', uid, 'groups', gid)).catch(() => {});
+  };
+  const order = (d: Record<string, unknown>) => (typeof d.order === 'number' ? d.order : 999);
+  const subs: (() => void)[] = [
+    onSnapshot(
+      g,
+      (snap) => {
+        if (!snap.exists()) {
+          if (!snap.metadata.fromCache) lost();
+          return;
+        }
+        const d = snap.data();
+        info = {
+          name: typeof d.name === 'string' ? d.name.slice(0, 60) : 'Grupo',
+          color: typeof d.color === 'string' && isSubjectColor(d.color) ? d.color : 'subj-azul',
+          ownerId: typeof d.ownerId === 'string' ? d.ownerId : '',
+        };
+        publish();
+      },
+      lost,
+    ),
+    onSnapshot(
+      collection(g, 'members'),
+      (snap) => {
+        members = snap.docs.flatMap((m) => {
+          const d = m.data();
+          return ROLES.includes(d.role) ? [{ uid: m.id, name: typeof d.name === 'string' ? d.name.slice(0, 60) : 'Sin nombre', role: d.role as GroupRole }] : [];
+        });
+        if (!snap.metadata.fromCache && !members.some((m) => m.uid === uid)) return lost();
+        publish();
+      },
+      lost,
+    ),
+    ...LIST_KEYS.map((key) =>
+      onSnapshot(
+        collection(g, key),
+        (snap) => {
+          if (snap.metadata.hasPendingWrites) return;
+          let docs = snap.docs.map((d) => ({ ...d.data(), id: d.id }) as Record<string, unknown>);
+          if (key === 'subjects') docs = docs.sort((a, b) => order(a) - order(b) || String(a.id).localeCompare(String(b.id)));
+          applyGroupList(gid, key, docs.flatMap((d) => (CLEAN[key](d) as { group?: string } | null) ?? []));
+        },
+        lost,
+      ),
+    ),
+  ];
+  groupSubs.set(gid, subs);
+}
+
+function forgetGroup(gid: string) {
+  groupSubs.get(gid)?.forEach((u) => u());
+  groupSubs.delete(gid);
+  dropGroup(gid);
+}
+
+/** Nombre con el que aparece ante los demás miembros: el de su cuenta de Google o el que puso en Ajustes. */
+const myName = () => (auth.currentUser?.displayName || getState().userName || 'Sin nombre').slice(0, 60);
+
+const needUser = () => {
+  if (!auth.currentUser) throw Object.assign(new Error('Inicia sesión para usar los grupos.'), { code: 'sin-sesion' });
+  return auth.currentUser;
+};
+
+// Código de invitación: 10 caracteres sin los que se confunden (0/O, 1/I/L): ~50 bits, imposible de adivinar
+const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+const INVITE_DAYS = 7;
+function newCode(): string {
+  const out: string[] = [];
+  while (out.length < 10) {
+    const [x] = crypto.getRandomValues(new Uint8Array(1));
+    if (x < 248) out.push(CODE_CHARS[x % CODE_CHARS.length]); // 248 = 8 × 31: sin sesgo
+  }
+  return out.join('');
+}
+
+export async function createGroup(name: string, color: string): Promise<string> {
+  const u = needUser();
+  const g = doc(collection(db, 'groups'));
+  const now = Date.now();
+  await setDoc(g, { name: name.trim().slice(0, 60), color, ownerId: u.uid, createdAt: now });
+  await setDoc(doc(g, 'members', u.uid), { role: 'owner', name: myName(), joinedAt: now });
+  await setDoc(doc(db, 'users', u.uid, 'groups', g.id), { joinedAt: now });
+  return g.id;
+}
+
+/** Entra en un grupo con un código de invitación (como lector). Devuelve el id del grupo. */
+export async function joinGroup(rawCode: string): Promise<string> {
+  const u = needUser();
+  const code = rawCode.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const invalid = () => Object.assign(new Error('Ese código no existe o ha caducado. Pide uno nuevo a quien administra el grupo.'), { code: 'codigo-invalido' });
+  if (!/^[A-Z2-9]{10}$/.test(code)) throw invalid();
+  const inv = await getDoc(doc(db, 'invites', code));
+  const data = inv.data();
+  if (!inv.exists() || typeof data?.groupId !== 'string' || !(data.expires > Date.now())) throw invalid();
+  const gid = data.groupId as string;
+  if (getState().groups.some((g) => g.id === gid)) return gid;
+  const now = Date.now();
+  await setDoc(doc(db, 'groups', gid, 'members', u.uid), { role: 'viewer', name: myName(), code, joinedAt: now });
+  await setDoc(doc(db, 'users', u.uid, 'groups', gid), { joinedAt: now });
+  return gid;
+}
+
+/** Nuevo código de invitación (7 días). El anterior deja de servir. */
+export async function createInvite(gid: string) {
+  const u = needUser();
+  const old = getState().groups.find((g) => g.id === gid)?.invite;
+  const code = newCode();
+  const expires = Date.now() + INVITE_DAYS * 86_400_000;
+  await setDoc(doc(db, 'invites', code), { groupId: gid, expires, createdBy: u.uid });
+  await setDoc(doc(db, 'users', u.uid, 'groups', gid), { invite: { code, expires } }, { merge: true });
+  if (old) await deleteDoc(doc(db, 'invites', old.code)).catch(() => {});
+}
+
+export async function renameGroup(gid: string, name: string, color: string) {
+  needUser();
+  await updateDoc(doc(db, 'groups', gid), { name: name.trim().slice(0, 60), color });
+}
+
+/** Da o quita permiso de edición a un miembro (solo quien administra). */
+export async function setMemberRole(gid: string, memberUid: string, role: 'editor' | 'viewer') {
+  needUser();
+  await updateDoc(doc(db, 'groups', gid, 'members', memberUid), { role });
+}
+
+/** Saca a alguien del grupo. El código de invitación vigente deja de servir para que no pueda volver a entrar con él. */
+export async function removeMember(gid: string, memberUid: string) {
+  const u = needUser();
+  await deleteDoc(doc(db, 'groups', gid, 'members', memberUid));
+  const invite = getState().groups.find((g) => g.id === gid)?.invite;
+  if (invite) {
+    await deleteDoc(doc(db, 'invites', invite.code)).catch(() => {});
+    await updateDoc(doc(db, 'users', u.uid, 'groups', gid), { invite: deleteField() }).catch(() => {});
+  }
+}
+
+export async function leaveGroup(gid: string) {
+  const u = needUser();
+  await deleteDoc(doc(db, 'groups', gid, 'members', u.uid));
+  await deleteDoc(doc(db, 'users', u.uid, 'groups', gid)).catch(() => {});
+  forgetGroup(gid);
+}
+
+/** Borra el grupo con todo lo que tiene dentro (solo quien administra). */
+export async function deleteGroup(gid: string) {
+  const u = needUser();
+  const g = doc(db, 'groups', gid);
+  const invite = getState().groups.find((x) => x.id === gid)?.invite;
+  // El código primero: sus reglas comprueban que el grupo sigue existiendo y es suyo
+  if (invite) await deleteDoc(doc(db, 'invites', invite.code)).catch(() => {});
+  const ops: BatchOp[] = [];
+  for (const key of LIST_KEYS) {
+    const snap = await getDocsFromServer(collection(g, key));
+    snap.docs.forEach((d) => ops.push((b) => b.delete(d.ref)));
+  }
+  // Los miembros al final (las reglas de lo anterior comprueban que sigue siendo miembro), y quien administra el último
+  const members = await getDocsFromServer(collection(g, 'members'));
+  members.docs.filter((d) => d.id !== u.uid).forEach((d) => ops.push((b) => b.delete(d.ref)));
+  ops.push((b) => b.delete(doc(g, 'members', u.uid)));
+  ops.push((b) => b.delete(g));
+  await commit(ops);
+  await deleteDoc(doc(db, 'users', u.uid, 'groups', gid)).catch(() => {});
+  forgetGroup(gid);
 }
 
 // ---------- Recordatorios con la app cerrada ----------
@@ -452,47 +697,53 @@ function stop() {
   clearTimeout(reminderTimer);
   remoteReminders = new Map();
   remindersLoaded = false;
+  groupSubs.forEach((subs) => subs.forEach((u) => u()));
+  groupSubs = new Map();
+  mirror = new Map();
   setRemote(null);
 }
 
 function makeRemote(base: DocumentReference): Remote {
-  const ref = (name: string, id: string) => doc(base, name, id);
+  // Lo personal va a users/{uid}; lo de un grupo, a groups/{gid}. El campo local `group` no se guarda.
+  const home = (item: { group?: string }) => (item.group ? doc(db, 'groups', item.group) : base);
+  const ref = (name: string, item: { id: string; group?: string }) => doc(home(item), name, item.id);
+  const strip = <T extends { group?: string }>(item: T) => {
+    const copy = { ...item };
+    delete copy.group;
+    return copy;
+  };
   // setDoc/deleteDoc se aplican al instante en la copia local; la promesa espera a que llegue al servidor.
   const send = (p: Promise<unknown>) => {
     p.then(updateStatus, onError);
     updateStatus();
   };
+  const own = (name: string, id: string) => doc(base, name, id);
   return {
-    putTask: (t) => send(setDoc(ref('tasks', t.id), t)),
-    removeTask: (id) => send(deleteDoc(ref('tasks', id))),
-    putExam: (e) => send(setDoc(ref('exams', e.id), e)),
-    removeExam: (id) => send(deleteDoc(ref('exams', id))),
-    putEvent: (e) => send(setDoc(ref('events', e.id), e)),
-    removeEvent: (id) => send(deleteDoc(ref('events', id))),
-    putNote: (n) => send(setDoc(ref('notes', n.id), n)),
-    removeNote: (id) => send(deleteDoc(ref('notes', id))),
-    putSubject: (s, order) => send(setDoc(ref('subjects', s.id), { ...s, order })),
-    removeSubject: (id) => send(deleteDoc(ref('subjects', id))),
+    putTask: (t) => send(setDoc(ref('tasks', t), strip(t))),
+    removeTask: (t) => send(deleteDoc(ref('tasks', t))),
+    putExam: (e) => send(setDoc(ref('exams', e), strip(e))),
+    removeExam: (e) => send(deleteDoc(ref('exams', e))),
+    putEvent: (e) => send(setDoc(ref('events', e), strip(e))),
+    removeEvent: (e) => send(deleteDoc(ref('events', e))),
+    putNote: (n) => send(setDoc(ref('notes', n), strip(n))),
+    removeNote: (n) => send(deleteDoc(ref('notes', n))),
+    putSubject: (sub, order) => send(setDoc(ref('subjects', sub), { ...strip(sub), order })),
+    removeSubject: (sub) => send(deleteDoc(ref('subjects', sub))),
     putProfile: (p) => send(setDoc(base, p, { merge: true })),
     putStudyLog: (studyLog) => send(setDoc(base, { studyLog }, { merge: true })),
+    // Importar una copia: solo lo personal (prev y next ya vienen sin lo de los grupos)
     replaceAll: (prev, next) => {
       const ops: BatchOp[] = [];
       const keep = (list: { id: string }[]) => new Set(list.map((x) => x.id));
-      const nextTasks = keep(next.tasks);
-      const nextExams = keep(next.exams);
-      const nextEvents = keep(next.events);
-      const nextNotes = keep(next.notes);
-      const nextSubjects = keep(next.subjects);
-      for (const t of prev.tasks) if (!nextTasks.has(t.id)) ops.push((b) => b.delete(ref('tasks', t.id)));
-      for (const e of prev.exams) if (!nextExams.has(e.id)) ops.push((b) => b.delete(ref('exams', e.id)));
-      for (const e of prev.events) if (!nextEvents.has(e.id)) ops.push((b) => b.delete(ref('events', e.id)));
-      for (const n of prev.notes) if (!nextNotes.has(n.id)) ops.push((b) => b.delete(ref('notes', n.id)));
-      for (const s of prev.subjects) if (!nextSubjects.has(s.id)) ops.push((b) => b.delete(ref('subjects', s.id)));
-      for (const t of next.tasks) ops.push((b) => b.set(ref('tasks', t.id), t));
-      for (const e of next.exams) ops.push((b) => b.set(ref('exams', e.id), e));
-      for (const e of next.events) ops.push((b) => b.set(ref('events', e.id), e));
-      for (const n of next.notes) ops.push((b) => b.set(ref('notes', n.id), n));
-      next.subjects.forEach((s, order) => ops.push((b) => b.set(ref('subjects', s.id), { ...s, order })));
+      for (const key of LIST_KEYS) {
+        const nextIds = keep(next[key]);
+        for (const x of prev[key]) if (!nextIds.has(x.id)) ops.push((b) => b.delete(own(key, x.id)));
+      }
+      for (const t of next.tasks) ops.push((b) => b.set(own('tasks', t.id), strip(t)));
+      for (const e of next.exams) ops.push((b) => b.set(own('exams', e.id), strip(e)));
+      for (const e of next.events) ops.push((b) => b.set(own('events', e.id), strip(e)));
+      for (const n of next.notes) ops.push((b) => b.set(own('notes', n.id), strip(n)));
+      next.subjects.forEach((sub, order) => ops.push((b) => b.set(own('subjects', sub.id), { ...strip(sub), order })));
       ops.push((b) => b.set(base, { userName: next.userName, studyLog: next.studyLog }, { merge: true }));
       send(commit(ops));
     },

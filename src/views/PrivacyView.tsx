@@ -16,8 +16,8 @@ export function PrivacyView({ desktop }: { desktop: boolean }) {
       <section className="privacy">
         <SectionHeader>Qué se guarda</SectionHeader>
         <p>
-          Lo que apuntas: asignaturas, tareas, exámenes, eventos, los días que marcas como estudiados y el nombre con el
-          que te saluda la app. Si apuntas citas médicas o cumpleaños, eso puede incluir datos de salud o de otras
+          Lo que apuntas: asignaturas, tareas, exámenes, eventos, notas, los días que marcas como estudiados y el nombre
+          con el que te saluda la app. Si apuntas citas médicas o cumpleaños, eso puede incluir datos de salud o de otras
           personas: apunta solo lo que necesites.
         </p>
 
@@ -25,7 +25,8 @@ export function PrivacyView({ desktop }: { desktop: boolean }) {
         <p>
           En este dispositivo (en el navegador o, en la app de escritorio, en la carpeta <code>%APPDATA%\Nocta</code>). Si
           inicias sesión con Google, también en Firebase (Google Cloud), asociado a tu cuenta. Solo tú puedes leerlos: las
-          reglas de la base de datos impiden que otra cuenta acceda a ellos.
+          reglas de la base de datos impiden que otra cuenta acceda a ellos. Lo único que ven otras personas es lo que
+          apuntas dentro de un grupo (más abajo).
         </p>
 
         <SectionHeader>Con quién</SectionHeader>
@@ -39,20 +40,55 @@ export function PrivacyView({ desktop }: { desktop: boolean }) {
           automático de GitHub. Se borran en cuanto se envían. Al cerrar sesión, ese dispositivo deja de recibirlos.
         </p>
 
+        <SectionHeader>Grupos</SectionHeader>
+        <p>
+          Los grupos (solo en la web, con la sesión iniciada) son calendarios compartidos. Lo que apuntas dentro de un
+          grupo (asignaturas, tareas, exámenes, eventos y notas) lo ven todos sus miembros, y también ven el nombre de tu
+          cuenta de Google (o, si no tiene, el que pusiste en Ajustes) en la lista de miembros. Tu agenda personal sigue
+          siendo solo tuya: nada pasa a un grupo si no lo eliges al apuntarlo.
+        </p>
+        <ul>
+          <li>
+            <strong>Quién edita:</strong> quien crea el grupo lo administra. Los demás entran como lectores (ven todo, no
+            cambian nada) hasta que les da permiso para editar.
+          </li>
+          <li>
+            <strong>Invitaciones:</strong> se entra con un código de 10 caracteres que crea quien administra. Caduca a los 7
+            días y deja de servir si crea otro. Cualquiera que lo tenga puede unirse como lector, así que compártelo solo
+            con quien quieras. Quien administra puede quitar a cualquier miembro; al hacerlo, el código deja de servir.
+          </li>
+          <li>
+            <strong>Recordatorios:</strong> los avisos de un elemento del grupo los reciben todos sus miembros que tengan
+            las notificaciones activadas.
+          </li>
+          <li>
+            <strong>Salir:</strong> al salir de un grupo (o si te quitan) deja de estar en tus dispositivos. Lo que
+            apuntaste en él se queda en el grupo.
+          </li>
+          <li>
+            <strong>Borrar:</strong> quien administra puede borrar el grupo, y con él todo lo que contiene, para todos.
+          </li>
+          <li>
+            <strong>Copias de seguridad:</strong> la copia que exportas solo incluye tu agenda personal, no lo de los
+            grupos.
+          </li>
+        </ul>
+
         <SectionHeader>Tus derechos</SectionHeader>
         <ul>
           <li>
             <strong>Llevártelos:</strong> Ajustes → Exportar copia.
           </li>
           <li>
-            <strong>Corregirlos o borrarlos uno a uno:</strong> desde cada tarea, examen o evento.
+            <strong>Corregirlos o borrarlos uno a uno:</strong> desde cada tarea, examen, evento o nota.
           </li>
           <li>
             <strong>Borrarlos de este dispositivo:</strong> Ajustes → Cerrar sesión.
           </li>
           <li>
             <strong>Borrarlo todo:</strong> Ajustes → Sincronización → Borrar mi cuenta y mis datos. Se elimina al momento
-            de la nube, junto con la cuenta.
+            de la nube, junto con la cuenta. Los grupos que administras se borran enteros; de los demás sales (lo que
+            apuntaste en ellos se queda en el grupo; bórralo antes si no quieres que siga ahí).
           </li>
         </ul>
         <p>

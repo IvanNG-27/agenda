@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
-import type { State } from '../data/types';
-import { actions } from '../data/store';
+import type { Group, State } from '../data/types';
+import { actions, canEdit, personalOnly } from '../data/store';
 import { downloadBackup, MAX_BACKUP_BYTES, parseBackup } from '../data/backup';
 import { nextColor, shortFrom } from '../data/defaults';
 import type { Subject } from '../data/types';
@@ -9,7 +9,8 @@ import { Icon } from '../components/Icons';
 import { PageHeader } from '../components/PageHeader';
 import { href } from '../ui';
 import { Swatches } from '../components/ColorPicker';
-import { deleteAccount, signIn, signOut, useSync, type SyncStatus } from '../sync';
+import { colorCss } from '../lib/rules';
+import { deleteAccount, groups as groupApi, signIn, signOut, useSync, type SyncStatus } from '../sync';
 import { isDesktopApp } from '../sync/config';
 import { releasesBetween } from '../data/changelog';
 import { WhatsNew } from '../components/WhatsNew';
@@ -31,7 +32,7 @@ export function SettingsView({ state, desktop }: Props) {
       )}
       <PageHeader title="Ajustes" />
 
-      <SyncSection />
+      <SyncSection state={state} />
 
       <NotificationsSection />
 
@@ -51,6 +52,8 @@ export function SettingsView({ state, desktop }: Props) {
 
       <SubjectsSection state={state} />
 
+      <GroupsSection state={state} />
+
       <BackupSection state={state} />
 
       <AppVersion />
@@ -64,27 +67,345 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
 const summary = (s: State) =>
   `${plural(s.tasks.length, 'tarea', 'tareas')}, ${plural(s.exams.length, 'examen', 'exámenes')}, ${plural(s.events.length, 'evento', 'eventos')} y ${plural(s.notes.length, 'nota', 'notas')}`;
 
-function SubjectsSection({ state }: { state: State }) {
+/** Asignaturas personales o, con `group`, las de un grupo (dentro de su tarjeta en Grupos). */
+function SubjectsSection({ state, group }: { state: State; group?: Group }) {
   const [adding, setAdding] = useState(false);
+  const subjects = state.subjects.filter((s) => s.group === group?.id);
+  const list = (
+    <div className="list">
+      {subjects.length === 0 && !adding && (
+        <p className="backup__text">
+          {group
+            ? 'Este grupo aún no tiene asignaturas.'
+            : 'Aún no tienes asignaturas. Añade las tuyas para empezar a apuntar deberes y exámenes.'}
+        </p>
+      )}
+      {subjects.map((s) => (
+        <SubjectEditor key={s.id} subject={s} state={state} />
+      ))}
+      {adding ? (
+        <NewSubject subjects={subjects} group={group?.id} onDone={() => setAdding(false)} />
+      ) : (
+        <button type="button" className="add-dashed" onClick={() => setAdding(true)}>
+          + Añadir asignatura
+        </button>
+      )}
+    </div>
+  );
+  if (group) return list;
   return (
     <section>
       <SectionHeader>Asignaturas</SectionHeader>
-      <div className="list">
-        {state.subjects.length === 0 && !adding && (
-          <p className="backup__text">Aún no tienes asignaturas. Añade las tuyas para empezar a apuntar deberes y exámenes.</p>
-        )}
-        {state.subjects.map((s) => (
-          <SubjectEditor key={s.id} subject={s} state={state} />
-        ))}
-        {adding ? (
-          <NewSubject subjects={state.subjects} onDone={() => setAdding(false)} />
-        ) : (
-          <button type="button" className="add-dashed" onClick={() => setAdding(true)}>
-            + Añadir asignatura
-          </button>
-        )}
-      </div>
+      {list}
     </section>
+  );
+}
+
+const ROLE_LABEL = { owner: 'Administras', editor: 'Puedes editar', viewer: 'Solo lectura' } as const;
+const formatCode = (c: string) => `${c.slice(0, 5)}-${c.slice(5)}`;
+
+/** Calendarios compartidos: solo en la web, con la sesión iniciada. */
+function GroupsSection({ state }: { state: State }) {
+  const sync = useSync();
+  if (isDesktopApp || sync.phase === 'unconfigured') return null;
+  return (
+    <section>
+      <SectionHeader>Grupos</SectionHeader>
+      {!signedIn(sync) ? (
+        <div className="backup">
+          <p className="backup__text">
+            Comparte un calendario con tu clase, tu familia o tus amigos: asignaturas, tareas, exámenes, eventos y notas.
+            Inicia sesión con Google (arriba) para crear un grupo o unirte a uno.
+          </p>
+        </div>
+      ) : (
+        <div className="list">
+          {state.groups.map((g) => (
+            <GroupCard key={g.id} group={g} state={state} />
+          ))}
+          <NewGroup />
+        </div>
+      )}
+    </section>
+  );
+}
+
+/** Ejecuta una acción de grupo mostrando "trabajando" y el error si lo hay. */
+function useGroupAction() {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const run = async (fn: () => Promise<unknown>) => {
+    setBusy(true);
+    setError('');
+    try {
+      await fn();
+      return true;
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudo hacer.');
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  };
+  return { busy, error, run };
+}
+
+function NewGroup() {
+  const [mode, setMode] = useState<'none' | 'create' | 'join'>('none');
+  const [name, setName] = useState('');
+  const [color, setColor] = useState('subj-turquesa');
+  const [code, setCode] = useState('');
+  const { busy, error, run } = useGroupAction();
+
+  if (mode === 'none') {
+    return (
+      <div className="group-new">
+        <button type="button" className="add-dashed" onClick={() => setMode('create')}>
+          + Crear un grupo
+        </button>
+        <button type="button" className="add-dashed" onClick={() => setMode('join')}>
+          Unirme con un código
+        </button>
+      </div>
+    );
+  }
+  const done = () => {
+    setMode('none');
+    setName('');
+    setCode('');
+  };
+  return mode === 'create' ? (
+    <form
+      className="subject-edit subject-edit--new"
+      aria-label="Nuevo grupo"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        if (name.trim() && (await run(() => groupApi.create(name, color)))) done();
+      }}
+    >
+      <label className="field">
+        <span className="field__label">Nombre del grupo</span>
+        <input className="input" value={name} maxLength={60} autoFocus placeholder="2º DAM, Familia, Piso…" onChange={(e) => setName(e.target.value)} />
+      </label>
+      <Swatches label="Color del grupo" value={color} onChange={setColor} />
+      <p className="backup__text">Lo administrarás tú: invitas a gente con un código y decides quién puede editar.</p>
+      {error && <p className="backup__text backup__text--error" role="alert">{error}</p>}
+      <div className="backup__actions">
+        <button type="submit" className="btn" disabled={!name.trim() || busy}>
+          {busy ? 'Creando…' : 'Crear grupo'}
+        </button>
+        <button type="button" className="btn btn--secondary" onClick={done}>
+          Cancelar
+        </button>
+      </div>
+    </form>
+  ) : (
+    <form
+      className="subject-edit subject-edit--new"
+      aria-label="Unirme a un grupo"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        if (code.trim() && (await run(() => groupApi.join(code)))) done();
+      }}
+    >
+      <label className="field">
+        <span className="field__label">Código de invitación</span>
+        <input
+          className="input group-code-input"
+          value={code}
+          maxLength={11}
+          autoFocus
+          autoCapitalize="characters"
+          autoComplete="off"
+          spellCheck={false}
+          placeholder="ABCDE-23456"
+          onChange={(e) => setCode(e.target.value.toUpperCase())}
+        />
+      </label>
+      <p className="backup__text">Entrarás como lector: verás todo lo del grupo y quien lo administra puede darte permiso para editar.</p>
+      {error && <p className="backup__text backup__text--error" role="alert">{error}</p>}
+      <div className="backup__actions">
+        <button type="submit" className="btn" disabled={!code.trim() || busy}>
+          {busy ? 'Entrando…' : 'Unirme'}
+        </button>
+        <button type="button" className="btn btn--secondary" onClick={done}>
+          Cancelar
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function GroupCard({ group: g, state }: { group: Group; state: State }) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState(g.name);
+  const [confirm, setConfirm] = useState<string | null>(null); // 'salir' | 'borrar' | uid a quitar
+  const [copied, setCopied] = useState(false);
+  const { busy, error, run } = useGroupAction();
+  const owner = g.role === 'owner';
+
+  const copy = async () => {
+    if (!g.invite) return;
+    try {
+      await navigator.clipboard.writeText(formatCode(g.invite.code));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* sin portapapeles: el código se puede seleccionar a mano */
+    }
+  };
+
+  return (
+    <div className="group-card">
+      <button type="button" className="group-card__head" aria-expanded={open} onClick={() => setOpen(!open)}>
+        <span className="dot dot--10" style={{ background: colorCss(g.color) }} />
+        <span className="group-card__name">{g.name}</span>
+        <span className={`group-role group-role--${g.role}`}>{ROLE_LABEL[g.role]}</span>
+        <span className="group-card__count">{plural(g.members.length, 'miembro', 'miembros')}</span>
+        <Icon name={open ? 'izq' : 'der'} size={14} />
+      </button>
+
+      {open && (
+        <div className="group-card__body">
+          {owner && (
+            <div className="group-card__block">
+              <label className="field">
+                <span className="field__label">Nombre</span>
+                <input
+                  className="input"
+                  value={name}
+                  maxLength={60}
+                  onChange={(e) => setName(e.target.value)}
+                  onBlur={() => name.trim() && name.trim() !== g.name && run(() => groupApi.rename(g.id, name, g.color))}
+                />
+              </label>
+              <Swatches label={`Color de ${g.name}`} value={g.color} onChange={(color) => run(() => groupApi.rename(g.id, g.name, color))} />
+            </div>
+          )}
+
+          {owner && (
+            <div className="group-card__block">
+              <h3 className="group-card__title">Invitar</h3>
+              {g.invite ? (
+                <>
+                  <div className="group-invite">
+                    <code className="group-invite__code">{formatCode(g.invite.code)}</code>
+                    <button type="button" className="btn btn--secondary" onClick={copy}>
+                      {copied ? 'Copiado' : 'Copiar'}
+                    </button>
+                  </div>
+                  <p className="backup__text">
+                    Válido hasta el {new Date(g.invite.expires).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}. Quien lo use
+                    entra como lector.{' '}
+                    <button type="button" className="inline-link link-btn" onClick={() => run(() => groupApi.invite(g.id))} disabled={busy}>
+                      Crear otro (el actual deja de servir)
+                    </button>
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="backup__text">Crea un código y pásaselo a quien quieras invitar. Sirve durante 7 días.</p>
+                  <div className="backup__actions">
+                    <button type="button" className="btn btn--secondary" onClick={() => run(() => groupApi.invite(g.id))} disabled={busy}>
+                      Crear código de invitación
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          <div className="group-card__block">
+            <h3 className="group-card__title">Miembros</h3>
+            <ul className="group-members">
+              {[...g.members]
+                .sort((a, b) => (a.role === 'owner' ? -1 : b.role === 'owner' ? 1 : a.name.localeCompare(b.name)))
+                .map((m) => (
+                  <li key={m.uid}>
+                    <span className="group-members__name">{m.name}</span>
+                    {m.role === 'owner' ? (
+                      <span className="group-role group-role--owner">Administra</span>
+                    ) : owner ? (
+                      <>
+                        <label className="check-row group-members__perm">
+                          <button
+                            type="button"
+                            className="checkbox"
+                            role="checkbox"
+                            aria-checked={m.role === 'editor'}
+                            aria-label={`${m.name} puede editar`}
+                            disabled={busy}
+                            onClick={() => run(() => groupApi.setRole(g.id, m.uid, m.role === 'editor' ? 'viewer' : 'editor'))}
+                          >
+                            {m.role === 'editor' && <Icon name="check" size={16} />}
+                          </button>
+                          <span>Puede editar</span>
+                        </label>
+                        {confirm === m.uid ? (
+                          <button type="button" className="text-btn text-btn--danger" onClick={() => run(() => groupApi.remove(g.id, m.uid))}>
+                            ¿Quitar? Toca otra vez
+                          </button>
+                        ) : (
+                          <button type="button" className="text-btn" onClick={() => setConfirm(m.uid)}>
+                            Quitar
+                          </button>
+                        )}
+                      </>
+                    ) : (
+                      <span className={`group-role group-role--${m.role}`}>{m.role === 'editor' ? 'Edita' : 'Lector'}</span>
+                    )}
+                  </li>
+                ))}
+            </ul>
+          </div>
+
+          <div className="group-card__block">
+            <h3 className="group-card__title">Asignaturas del grupo</h3>
+            {canEdit({ group: g.id }, state) ? (
+              <SubjectsSection state={state} group={g} />
+            ) : (
+              <p className="backup__text">
+                {state.subjects.filter((x) => x.group === g.id).map((x) => x.name).join(', ') || 'Este grupo aún no tiene asignaturas.'}
+              </p>
+            )}
+          </div>
+
+          {error && <p className="backup__text backup__text--error" role="alert">{error}</p>}
+
+          <div className="backup__actions">
+            {owner ? (
+              confirm === 'borrar' ? (
+                <>
+                  <button type="button" className="btn btn--danger btn--secondary" disabled={busy} onClick={() => run(() => groupApi.delete(g.id))}>
+                    {busy ? 'Borrando…' : 'Borrar el grupo y todo lo suyo'}
+                  </button>
+                  <button type="button" className="btn btn--secondary" onClick={() => setConfirm(null)}>
+                    Cancelar
+                  </button>
+                </>
+              ) : (
+                <button type="button" className="text-btn" onClick={() => setConfirm('borrar')}>
+                  Borrar grupo
+                </button>
+              )
+            ) : confirm === 'salir' ? (
+              <>
+                <button type="button" className="btn btn--danger btn--secondary" disabled={busy} onClick={() => run(() => groupApi.leave(g.id))}>
+                  Salir del grupo
+                </button>
+                <button type="button" className="btn btn--secondary" onClick={() => setConfirm(null)}>
+                  Cancelar
+                </button>
+              </>
+            ) : (
+              <button type="button" className="text-btn" onClick={() => setConfirm('salir')}>
+                Salir del grupo
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -135,7 +456,7 @@ function SubjectEditor({ subject: s, state }: { subject: Subject; state: State }
   );
 }
 
-function NewSubject({ subjects, onDone }: { subjects: Subject[]; onDone: () => void }) {
+function NewSubject({ subjects, group, onDone }: { subjects: Subject[]; group?: string; onDone: () => void }) {
   const [name, setName] = useState('');
   const [short, setShort] = useState('');
   const [color, setColor] = useState(() => nextColor(subjects));
@@ -145,7 +466,7 @@ function NewSubject({ subjects, onDone }: { subjects: Subject[]; onDone: () => v
     e.preventDefault();
     const n = name.trim();
     if (!n) return;
-    actions.addSubject({ name: n, short: short.trim() || auto || n.slice(0, 12), color });
+    actions.addSubject({ name: n, short: short.trim() || auto || n.slice(0, 12), color, group });
     onDone();
   };
 
@@ -213,7 +534,7 @@ function BackupSection({ state }: { state: State }) {
         {pending ? (
           <div className="backup__confirm" role="alert">
             <p className="backup__text backup__text--ink">
-              La copia tiene {summary(pending)}. Si la importas, reemplaza lo que tienes ahora ({summary(state)}).
+              La copia tiene {summary(pending)}. Si la importas, reemplaza lo que tienes ahora ({summary(personalOnly(state))}).
             </p>
             <div className="backup__actions">
               <button type="button" className="btn" onClick={confirm}>
@@ -345,7 +666,7 @@ function NotificationsSection() {
   );
 }
 
-function SyncSection() {
+function SyncSection({ state }: { state: State }) {
   const sync = useSync();
   const [confirmOut, setConfirmOut] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -388,6 +709,8 @@ function SyncSection() {
             <p className="backup__text backup__text--ink">
               Se borrarán para siempre tu cuenta de Nocta y todo lo que tienes guardado en la nube y en este dispositivo. No
               se puede deshacer: si quieres conservar algo, exporta antes una copia.
+              {state.groups.length > 0 &&
+                ' Los grupos que administras se borrarán para todos; de los demás saldrás (lo que apuntaste en ellos se queda).'}
             </p>
             <div className="backup__actions">
               <button type="button" className="btn btn--danger" onClick={() => deleteAccount()}>

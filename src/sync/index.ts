@@ -79,6 +79,31 @@ export async function enablePush(): Promise<string | null> {
   }
 }
 
+// ---------- Grupos (calendarios compartidos) ----------
+// Cada función lanza un Error con un mensaje en español listo para enseñar si algo falla.
+
+type FirebaseModule = typeof import('./firebase');
+async function groupCall<T>(fn: (m: FirebaseModule) => Promise<T>): Promise<T> {
+  if (!available) throw new Error('Los grupos solo están en la versión web, con la sesión iniciada.');
+  try {
+    return await fn(await load());
+  } catch (err) {
+    const code = (err as { code?: string })?.code;
+    throw new Error(code === 'permission-denied' ? 'No tienes permiso para hacer eso en este grupo.' : messageFor(err));
+  }
+}
+
+export const groups = {
+  create: (name: string, color: string) => groupCall((m) => m.createGroup(name, color)),
+  join: (code: string) => groupCall((m) => m.joinGroup(code)),
+  invite: (gid: string) => groupCall((m) => m.createInvite(gid)),
+  rename: (gid: string, name: string, color: string) => groupCall((m) => m.renameGroup(gid, name, color)),
+  setRole: (gid: string, uid: string, role: 'editor' | 'viewer') => groupCall((m) => m.setMemberRole(gid, uid, role)),
+  remove: (gid: string, uid: string) => groupCall((m) => m.removeMember(gid, uid)),
+  leave: (gid: string) => groupCall((m) => m.leaveGroup(gid)),
+  delete: (gid: string) => groupCall((m) => m.deleteGroup(gid)),
+};
+
 /** Borra la cuenta y todos sus datos de la nube (derecho de supresión). */
 export async function deleteAccount() {
   if (!available) return;
@@ -93,6 +118,10 @@ export async function deleteAccount() {
 export function messageFor(err: unknown): string {
   const code = (err as { code?: string })?.code ?? '';
   switch (code) {
+    // Errores propios de los grupos: ya traen su mensaje
+    case 'codigo-invalido':
+    case 'sin-sesion':
+      return (err as Error).message;
     case 'auth/unauthorized-domain':
       return 'Este dominio no está autorizado en Firebase. Añádelo en Authentication → Configuración → Dominios autorizados.';
     case 'auth/operation-not-allowed':

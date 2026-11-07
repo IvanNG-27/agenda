@@ -1,4 +1,5 @@
 import type { AgendaEvent } from '../data/types';
+import { getState, groupOf } from '../data/store';
 import { relativeDate } from '../lib/dates';
 import { eventColor, kindInfo, yearsOn } from '../lib/events';
 import { useUI } from '../ui';
@@ -18,6 +19,7 @@ export function EventItem({ event, date, today, withDate }: Props) {
   const info = kindInfo(event.kind);
   const years = yearsOn(event, date);
   const meta = [
+    groupOf(getState(), event.group)?.name,
     withDate && event.time,
     event.place,
     years && (event.kind === 'cumple' ? `cumple ${years}` : `${years} años`),
