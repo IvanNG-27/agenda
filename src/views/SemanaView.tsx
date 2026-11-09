@@ -9,11 +9,14 @@ import { PageHeader } from '../components/PageHeader';
 import { addDays, day, DOW_LONG, DOW_SHORT, isoWeek, monthName, startOfWeek, weekday } from '../lib/dates';
 import { byDate, byDue, colorVar, subjectMap, upcomingExams } from '../lib/rules';
 import { eventColor, eventsOn } from '../lib/events';
+import { ScopePicker, scoped, useScope } from '../components/ScopePicker';
 
 type Props = { state: State; today: string };
 
 /** Móvil C · Semana: tira L–D y línea de tiempo del día seleccionado. */
-export function SemanaView({ state, today }: Props) {
+export function SemanaView({ state: all, today }: Props) {
+  const [scope, setScope] = useScope(all);
+  const state = scoped(all, scope);
   const subjects = subjectMap(state.subjects);
   const [selected, setSelected] = useState(today);
   const monday = startOfWeek(selected);
@@ -49,6 +52,8 @@ export function SemanaView({ state, today }: Props) {
         }
         title="Semana"
       />
+
+      <ScopePicker state={all} scope={scope} onChange={setScope} />
 
       <div className="strip" role="tablist" aria-label="Días de la semana">
         {days.map((d) => {

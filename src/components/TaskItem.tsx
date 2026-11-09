@@ -5,6 +5,7 @@ import { relativeDate } from '../lib/dates';
 import { colorVar, isUrgent } from '../lib/rules';
 import { Icon } from './Icons';
 import { useUI } from '../ui';
+import { GroupTag, useGroupStyle } from './GroupTag';
 
 type Props = {
   task: Task;
@@ -20,9 +21,10 @@ type Props = {
 export function TaskItem({ task, subject, today, raised, extra, draggable }: Props) {
   const { openEditor } = useUI();
   const urgent = isUrgent(task, today);
-  // Lectores de un grupo: sin marcar ni arrastrar
+  // Lectores de un grupo: pueden marcarla (solo para sí), pero no moverla de día
   const editable = canEdit(task);
   draggable = draggable && editable;
+  const groupStyle = useGroupStyle(task.group);
   const meta = [subject?.name, task.notes?.split('\n')[0], extra].filter(Boolean).join(' · ');
 
   const onDragStart = (e: DragEvent) => {
@@ -32,7 +34,8 @@ export function TaskItem({ task, subject, today, raised, extra, draggable }: Pro
 
   return (
     <div
-      className={`task${raised ? ' task--raised' : ''}${task.done ? ' task--done' : ''}`}
+      className={`task${raised ? ' task--raised' : ''}${task.done ? ' task--done' : ''}${groupStyle ? ' task--group' : ''}`}
+      style={groupStyle}
       draggable={draggable}
       onDragStart={draggable ? onDragStart : undefined}
     >
@@ -42,7 +45,6 @@ export function TaskItem({ task, subject, today, raised, extra, draggable }: Pro
         className="checkbox"
         role="checkbox"
         aria-checked={task.done}
-        disabled={!editable}
         aria-label={task.done ? `Desmarcar ${task.title}` : `Marcar ${task.title} como hecha`}
         onClick={() => actions.toggleTask(task.id)}
       >
@@ -51,7 +53,10 @@ export function TaskItem({ task, subject, today, raised, extra, draggable }: Pro
       <button type="button" className="task__main" onClick={() => openEditor({ kind: 'task', id: task.id })}>
         <span className="task__text">
           <span className="task__title">{task.title}</span>
-          <span className="task__meta">{meta}</span>
+          <span className="task__meta">
+            <GroupTag id={task.group} />
+            {meta}
+          </span>
         </span>
         <span className={`task__date${urgent ? ' is-urgent' : ''}`}>{relativeDate(task.dueDate, today)}</span>
       </button>

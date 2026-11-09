@@ -1,8 +1,8 @@
 import type { AgendaEvent } from '../data/types';
-import { getState, groupOf } from '../data/store';
 import { relativeDate } from '../lib/dates';
 import { eventColor, kindInfo, yearsOn } from '../lib/events';
 import { useUI } from '../ui';
+import { GroupTag, useGroupStyle } from './GroupTag';
 
 type Props = {
   event: AgendaEvent;
@@ -19,7 +19,6 @@ export function EventItem({ event, date, today, withDate }: Props) {
   const info = kindInfo(event.kind);
   const years = yearsOn(event, date);
   const meta = [
-    groupOf(getState(), event.group)?.name,
     withDate && event.time,
     event.place,
     years && (event.kind === 'cumple' ? `cumple ${years}` : `${years} años`),
@@ -27,8 +26,9 @@ export function EventItem({ event, date, today, withDate }: Props) {
     event.notes?.split('\n')[0],
   ].filter(Boolean).join(' · ');
 
+  const groupStyle = useGroupStyle(event.group);
   return (
-    <div className="task task--event">
+    <div className={`task task--event${groupStyle ? ' task--group' : ''}`} style={groupStyle}>
       <span className="task__bar" style={{ background: eventColor(event) }} />
       <span className="event-icon" role="img" aria-label={info.label}>
         {info.emoji}
@@ -36,7 +36,10 @@ export function EventItem({ event, date, today, withDate }: Props) {
       <button type="button" className="task__main" onClick={() => openEditor({ kind: 'event', id: event.id })}>
         <span className="task__text">
           <span className="task__title">{event.title}</span>
-          <span className="task__meta">{meta || info.label}</span>
+          <span className="task__meta">
+            <GroupTag id={event.group} />
+            {meta || info.label}
+          </span>
         </span>
         <span className="task__date">{withDate ? relativeDate(date, today) : event.time ?? 'Todo el día'}</span>
       </button>

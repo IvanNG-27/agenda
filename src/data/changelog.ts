@@ -8,6 +8,15 @@ export type Release = { version: string; changes: string[] };
 
 export const CHANGELOG: Release[] = [
   {
+    version: '1.8.2',
+    changes: [
+      '👥 Ahora se distingue de un vistazo lo tuyo de lo de tus grupos: las tareas, exámenes y eventos de un grupo llevan su nombre y su color.',
+      'En Exámenes, tus exámenes y los de cada grupo salen por separado.',
+      '✅ Las tareas de un grupo las marca cada uno: cuando terminas una, sale hecha solo para ti y a los demás les sigue saliendo pendiente.',
+      '📅 En el calendario puedes elegir qué ver: todo, solo tu calendario o el de uno de tus grupos.',
+    ],
+  },
+  {
     version: '1.8.1',
     changes: [
       'Arreglado el inicio de sesión en algunos móviles (sobre todo iPhone y Nocta instalada en la pantalla de inicio): elegías tu cuenta y no pasaba nada.',

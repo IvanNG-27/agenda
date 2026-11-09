@@ -3,6 +3,7 @@ import { diffDays, DOW_LONG, DOW_SHORT, day, shortDate, weekday } from '../lib/d
 import { currentStreak } from '../lib/streak';
 import { SubjectChip } from './SubjectChip';
 import { useUI } from '../ui';
+import { GroupTag } from './GroupTag';
 
 type Props = {
   exam: Exam;
@@ -58,6 +59,11 @@ export function ExamCard({
           {chip && subject && <SubjectChip subject={subject} />}
         </span>
         {!inlineTitle && <span className="exam__title">{exam.title}</span>}
+        {exam.group && (
+          <span className="exam__group">
+            <GroupTag id={exam.group} />
+          </span>
+        )}
         {!horizontal && (
           <span className="exam__count">
             {!past && <span className="exam__num">{number}</span>}
@@ -89,7 +95,10 @@ export function ExamLine({ exam, subject, today }: { exam: Exam; subject?: Subje
     <button type="button" className="exam-line" onClick={() => openEditor({ kind: 'exam', id: exam.id })}>
       <span className="exam-line__text">
         <span className="exam-line__title">{[subject?.short, exam.title].filter(Boolean).join(' · ')}</span>
-        <span className="exam-line__meta">{when}</span>
+        <span className="exam-line__meta">
+          <GroupTag id={exam.group} />
+          {when}
+        </span>
       </span>
       <span className="exam-line__num">{days === 0 ? 'Hoy' : `${days}d`}</span>
     </button>

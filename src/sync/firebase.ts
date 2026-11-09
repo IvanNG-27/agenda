@@ -63,6 +63,7 @@ import {
 import { deleteToken, getMessaging, getToken, isSupported } from 'firebase/messaging';
 import {
   applyGroup,
+  applyGroupDone,
   applyGroupList,
   applyRemote,
   dropGroup,
@@ -225,7 +226,7 @@ export async function deleteAccount() {
   try {
     const base = doc(db, 'users', u.uid);
     const ops: BatchOp[] = [];
-    for (const name of ['tasks', 'exams', 'events', 'subjects', 'notes', 'devices', 'groups']) {
+    for (const name of ['tasks', 'exams', 'events', 'subjects', 'notes', 'devices', 'groups', 'groupDone']) {
       const snap = await getDocsFromServer(collection(base, name));
       snap.docs.forEach((d) => ops.push((b) => b.delete(d.ref)));
     }
@@ -409,6 +410,22 @@ function listen(u: User) {
       onError,
     ),
     subscribeStore(() => scheduleReminderSync(u.uid)),
+    // Tareas de grupo que esta persona ha terminado (cada miembro tiene las suyas)
+    onSnapshot(
+      collection(base, 'groupDone'),
+      (snap) => {
+        if (snap.metadata.fromCache && snap.empty) return;
+        const map: Record<string, string> = {};
+        for (const d of snap.docs) {
+          const { group, task, doneAt } = d.data();
+          if (typeof group === 'string' && typeof task === 'string' && typeof doneAt === 'string' && ISO_DAY.test(doneAt)) {
+            map[`${group}/${task}`] = doneAt;
+          }
+        }
+        applyGroupDone(map);
+      },
+      onError,
+    ),
     // Grupos de los que forma parte: se escucha cada uno mientras siga en esta lista
     onSnapshot(
       collection(base, 'groups'),
@@ -440,6 +457,8 @@ const CLEAN: Record<ListKey, (d: Record<string, unknown>) => unknown> = {
   notes: cleanNote,
 };
 const ROLES: GroupRole[] = ['owner', 'editor', 'viewer'];
+
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
 
 let groupSubs = new Map<string, (() => void)[]>();
 let mirror = new Map<string, DocumentData>();
@@ -516,6 +535,9 @@ function watchGroup(uid: string, gid: string) {
 function forgetGroup(gid: string) {
   groupSubs.get(gid)?.forEach((u) => u());
   groupSubs.delete(gid);
+  // Las marcas de "hecha" de sus tareas ya no sirven: fuera también de la cuenta
+  const mine = Object.keys(getState().groupDone).filter((k) => k.startsWith(`${gid}/`));
+  if (user) for (const k of mine) void deleteDoc(doc(db, 'users', user.uid, 'groupDone', k.replace('/', '__'))).catch(() => {});
   dropGroup(gid);
 }
 
@@ -757,7 +779,8 @@ function makeRemote(base: DocumentReference): Remote {
   };
   const own = (name: string, id: string) => doc(base, name, id);
   return {
-    putTask: (t) => send(setDoc(ref('tasks', t), strip(t))),
+    // En el grupo, una tarea siempre va como pendiente: cada miembro guarda aparte si la ha terminado
+    putTask: (t) => send(setDoc(ref('tasks', t), t.group ? { ...strip(t), done: false, doneAt: undefined } : strip(t))),
     removeTask: (t) => send(deleteDoc(ref('tasks', t))),
     putExam: (e) => send(setDoc(ref('exams', e), strip(e))),
     removeExam: (e) => send(deleteDoc(ref('exams', e))),
@@ -769,6 +792,10 @@ function makeRemote(base: DocumentReference): Remote {
     removeSubject: (sub) => send(deleteDoc(ref('subjects', sub))),
     putProfile: (p) => send(setDoc(base, p, { merge: true })),
     putStudyLog: (studyLog) => send(setDoc(base, { studyLog }, { merge: true })),
+    putGroupDone: (group, task, doneAt) => {
+      const d = doc(base, 'groupDone', `${group}__${task}`);
+      send(doneAt ? setDoc(d, { group, task, doneAt }) : deleteDoc(d));
+    },
     // Importar una copia: solo lo personal (prev y next ya vienen sin lo de los grupos)
     replaceAll: (prev, next) => {
       const ops: BatchOp[] = [];

@@ -9,17 +9,25 @@ import { PageHeader } from '../components/PageHeader';
 import {
   addDays, addMonths, cap, day, dayMonth, DOW_LONG, DOW_SHORT, endOfWeek, monthName, startOfMonth, startOfWeek, weekday, year,
 } from '../lib/dates';
-import { byDate, byDue, colorVar, subjectMap, upcomingExams } from '../lib/rules';
+import { byDate, byDue, colorCss, colorVar, subjectMap, upcomingExams } from '../lib/rules';
 import { eventColor, eventsOn, kindInfo } from '../lib/events';
 import { useUI } from '../ui';
+import { ScopePicker, scoped, useScope } from '../components/ScopePicker';
 
 type Props = { state: State; today: string; initialDate?: string; initialMode: 'mes' | 'semana' };
 
 const MAX_EVENTS = 3;
 
 /** Escritorio B · Calendario mensual (con modo semana). */
-export function CalendarView({ state, today, initialDate, initialMode }: Props) {
+export function CalendarView({ state: all, today, initialDate, initialMode }: Props) {
   const { openEditor } = useUI();
+  const [scope, setScope] = useScope(all);
+  const state = scoped(all, scope);
+  const groupColor = new Map(all.groups.map((g) => [g.id, colorCss(g.color)]));
+  const groupName = new Map(all.groups.map((g) => [g.id, g.name]));
+  const fromGroup = (id?: string) => (id ? ` · ${groupName.get(id) ?? 'Grupo'}` : '');
+  // Al añadir desde el calendario de un grupo, se apunta en ese grupo
+  const inGroup = scope !== 'todo' && scope !== 'yo' ? scope : undefined;
   const subjects = subjectMap(state.subjects);
   const [selected, setSelected] = useState(initialDate ?? today);
   const [month, setMonth] = useState(startOfMonth(initialDate ?? today));
@@ -94,10 +102,12 @@ export function CalendarView({ state, today, initialDate, initialMode }: Props) 
               <Icon name="der" size={16} />
             </button>
           </div>
-          <button type="button" className="btn" onClick={() => openEditor({ kind: 'task', date: selected })}>
+          <button type="button" className="btn" onClick={() => openEditor({ kind: 'task', date: selected, group: inGroup })}>
             + Añadir
           </button>
         </PageHeader>
+
+        <ScopePicker state={all} scope={scope} onChange={setScope} />
 
         <div className={`cal${mode === 'semana' ? ' cal--week' : ''}`} style={{ ['--rows' as string]: cells.length / 7 }}>
           {DOW_SHORT.map((d) => (
@@ -113,7 +123,8 @@ export function CalendarView({ state, today, initialDate, initialMode }: Props) 
                   kind: 'event' as const,
                   id: ev.id,
                   text: `${info.emoji} ${ev.title}`, // la hora no cabe en la casilla: va en el panel y al pasar el ratón
-                  hint: [info.label, ev.time, ev.title].filter(Boolean).join(' · '),
+                  hint: [info.label, ev.time, ev.title].filter(Boolean).join(' · ') + fromGroup(ev.group),
+                  group: ev.group,
                   color: eventColor(ev) as string | undefined,
                   done: false,
                 };
@@ -124,14 +135,15 @@ export function CalendarView({ state, today, initialDate, initialMode }: Props) 
                   kind: 'exam' as const,
                   id: e.id,
                   text: `${s?.short ?? 'Examen'} · ${e.title}`,
-                  hint: `Examen · ${s?.name ?? ''} · ${e.title}`,
+                  hint: `Examen · ${s?.name ?? ''} · ${e.title}${fromGroup(e.group)}`,
+                  group: e.group,
                   color: undefined,
                   done: false,
                 };
               }),
               ...tasks.map((t) => {
                 const s = subjects.get(t.subjectId);
-                return { kind: 'task' as const, id: t.id, text: t.title, hint: `${s?.name ?? ''} · ${t.title}`, color: colorVar(s), done: t.done };
+                return { kind: 'task' as const, id: t.id, text: t.title, hint: `${s?.name ?? ''} · ${t.title}${fromGroup(t.group)}`, color: colorVar(s), done: t.done, group: t.group };
               }),
             ];
             const limit = mode === 'mes' ? MAX_EVENTS : events.length;
@@ -142,7 +154,7 @@ export function CalendarView({ state, today, initialDate, initialMode }: Props) 
               d === selected && 'is-selected',
             ].filter(Boolean).join(' ');
             return (
-              <div key={d} className={cls} onClick={() => select(d)} onDoubleClick={() => openEditor({ kind: 'task', date: d })}>
+              <div key={d} className={cls} onClick={() => select(d)} onDoubleClick={() => openEditor({ kind: 'task', date: d, group: inGroup })}>
                 <button
                   type="button"
                   className="cal__num"
@@ -159,8 +171,8 @@ export function CalendarView({ state, today, initialDate, initialMode }: Props) 
                   <button
                     key={ev.kind + ev.id}
                     type="button"
-                    className={`event${ev.kind === 'exam' ? ' event--exam' : ''}${ev.done ? ' is-done' : ''}`}
-                    style={ev.color ? { borderLeftColor: ev.color } : undefined}
+                    className={`event${ev.kind === 'exam' ? ' event--exam' : ''}${ev.done ? ' is-done' : ''}${ev.group ? ' event--group' : ''}`}
+                    style={{ ...(ev.color ? { borderLeftColor: ev.color } : {}), ...(ev.group ? { ['--g' as string]: groupColor.get(ev.group) } : {}) }}
                     title={ev.hint}
                     onClick={(e) => {
                       e.stopPropagation();

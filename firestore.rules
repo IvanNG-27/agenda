@@ -125,6 +125,16 @@ service cloud.firestore {
           && d.invite.expires is int));
     }
 
+    // Tarea de grupo terminada por esta persona (users/{uid}/groupDone/{grupo}__{tarea})
+    function validGroupDone(d, id) {
+      return d.keys().hasOnly(['group', 'task', 'doneAt'])
+        && d.keys().hasAll(['group', 'task', 'doneAt'])
+        && d.group is string && d.group.matches('^[A-Za-z0-9]{1,40}$')
+        && d.task is string && d.task.matches('^[A-Za-z0-9_-]{1,60}$')
+        && id == d.group + '__' + d.task
+        && isoDate(d.doneAt);
+    }
+
     function validProfile(d) {
       return d.keys().hasOnly(['userName', 'studyLog'])
         && (!('userName' in d) || (d.userName is string && d.userName.size() <= 40))
@@ -210,6 +220,10 @@ service cloud.firestore {
       match /devices/{id} {
         allow read, delete: if isOwner(uid);
         allow create, update: if isOwner(uid) && validDevice(request.resource.data);
+      }
+      match /groupDone/{id} {
+        allow read, delete: if isOwner(uid);
+        allow create, update: if isOwner(uid) && validGroupDone(request.resource.data, id);
       }
       match /groups/{gid} {
         allow read, delete: if isOwner(uid);

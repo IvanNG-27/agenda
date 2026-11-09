@@ -12,7 +12,14 @@ function load(): State {
       const parsed = JSON.parse(raw) as State;
       // Lo guardado por versiones anteriores puede no traer eventos (1.3.0), rachas (1.4.0), notas (1.7.0) ni grupos (1.8.0)
       if (parsed && parsed.version === 1) {
-        return { ...parsed, events: parsed.events ?? [], studyLog: parsed.studyLog ?? [], notes: parsed.notes ?? [], groups: parsed.groups ?? [] };
+        return {
+          ...parsed,
+          events: parsed.events ?? [],
+          studyLog: parsed.studyLog ?? [],
+          notes: parsed.notes ?? [],
+          groups: parsed.groups ?? [],
+          groupDone: parsed.groupDone ?? {},
+        };
       }
     }
   } catch {
@@ -73,7 +80,7 @@ export const editableGroups = (s: State = state) => s.groups.filter((g) => g.rol
 /** Solo lo personal (copias de seguridad, fusión al iniciar sesión…). */
 export function personalOnly(s: State): State {
   const own = <T extends Item>(list: T[]) => list.filter((x) => !x.group);
-  return { ...s, subjects: own(s.subjects), tasks: own(s.tasks), exams: own(s.exams), events: own(s.events), notes: own(s.notes), groups: [] };
+  return { ...s, subjects: own(s.subjects), tasks: own(s.tasks), exams: own(s.exams), events: own(s.events), notes: own(s.notes), groups: [], groupDone: {} };
 }
 
 /** Destino de los cambios en la nube (Firebase) mientras hay sesión iniciada. Cada elemento sabe si es de un grupo. */
@@ -90,6 +97,8 @@ export type Remote = {
   removeSubject(s: Subject): void;
   putProfile(p: { userName: string }): void;
   putStudyLog(days: string[]): void;
+  /** Marca (fecha) o desmarca (null) como terminada para esta persona una tarea de grupo */
+  putGroupDone(group: string, task: string, doneAt: string | null): void;
   /** Solo lo personal: los grupos no se tocan al importar una copia */
   replaceAll(prev: State, next: State): void;
 };
@@ -108,10 +117,25 @@ export function applyRemote(patch: Partial<Pick<State, 'userName' | 'studyLog' |
   set(next);
 }
 
+// Tareas de grupo: hecha o pendiente es de cada persona (state.groupDone), no del grupo.
+const doneKey = (t: { id: string; group?: string }) => `${t.group}/${t.id}`;
+const withMyDone = (t: Task, map: Record<string, string>): Task => {
+  if (!t.group) return t;
+  const doneAt = map[doneKey(t)];
+  return { ...t, done: !!doneAt, doneAt };
+};
+
 /** Aplica lo que llega de la nube para un grupo: sustituye sus elementos de esa lista. */
 export function applyGroupList(groupId: string, key: ListKey, items: Item[]) {
   const others = (state[key] as Item[]).filter((x) => x.group !== groupId);
-  set({ ...state, [key]: [...others, ...items.map((x) => ({ ...x, group: groupId }))] } as State);
+  let mine: Item[] = items.map((x) => ({ ...x, group: groupId }));
+  if (key === 'tasks') mine = mine.map((t) => withMyDone(t as Task, state.groupDone));
+  set({ ...state, [key]: [...others, ...mine] } as State);
+}
+
+/** Tareas de grupo que esta persona ha terminado (de la nube). */
+export function applyGroupDone(groupDone: Record<string, string>) {
+  set({ ...state, groupDone, tasks: state.tasks.map((t) => withMyDone(t, groupDone)) });
 }
 
 /** Datos del propio grupo (nombre, miembros, papel). Si no estaba, se añade. */
@@ -122,7 +146,8 @@ export function applyGroup(group: Group) {
 
 /** Quita de este dispositivo un grupo y todo lo suyo (al salir, ser expulsado o borrarse el grupo). */
 export function dropGroup(groupId: string) {
-  const next = { ...state, groups: state.groups.filter((g) => g.id !== groupId) } as State;
+  const groupDone = Object.fromEntries(Object.entries(state.groupDone).filter(([k]) => !k.startsWith(`${groupId}/`)));
+  const next = { ...state, groups: state.groups.filter((g) => g.id !== groupId), groupDone } as State;
   for (const key of LISTS) (next[key] as Item[]) = (state[key] as Item[]).filter((x) => x.group !== groupId);
   set(next);
 }
@@ -145,12 +170,32 @@ export const actions = {
     remote?.putTask(task);
   },
   updateTask(id: string, patch: Partial<Task>) {
-    if (!canEdit(state.tasks.find((t) => t.id === id))) return;
+    const current = state.tasks.find((t) => t.id === id);
+    // En una tarea de grupo, hecha/pendiente es solo de esta persona: va aparte
+    if (current?.group && 'done' in patch) {
+      const { done, doneAt: _doneAt, ...rest } = patch;
+      void _doneAt;
+      actions.setDone(id, !!done);
+      if (!Object.keys(rest).length) return;
+      patch = rest;
+    }
+    if (!canEdit(current)) return;
     set({ ...state, tasks: state.tasks.map((t) => (t.id === id ? { ...t, ...patch, group: t.group } : t)) });
     const task = state.tasks.find((t) => t.id === id);
     if (task) remote?.putTask(task);
   },
   setDone(id: string, done: boolean) {
+    const t = state.tasks.find((x) => x.id === id);
+    if (t?.group) {
+      // Tarea de grupo: cualquier miembro (también quien solo lee) la marca solo para sí
+      const key = doneKey(t);
+      const groupDone = { ...state.groupDone };
+      if (done) groupDone[key] = todayISO();
+      else delete groupDone[key];
+      set({ ...state, groupDone, tasks: state.tasks.map((x) => (x.id === id && x.group === t.group ? withMyDone(x, groupDone) : x)) });
+      remote?.putGroupDone(t.group, t.id, groupDone[key] ?? null);
+      return;
+    }
     actions.updateTask(id, { done, doneAt: done ? todayISO() : undefined });
   },
   toggleTask(id: string) {
@@ -285,7 +330,7 @@ export const actions = {
   replaceAll(next: State) {
     const prev = personalOnly(state);
     const own = personalOnly(next);
-    const merged = { ...own, groups: state.groups } as State;
+    const merged = { ...own, groups: state.groups, groupDone: state.groupDone } as State;
     for (const key of LISTS) (merged[key] as Item[]) = [...(own[key] as Item[]), ...(state[key] as Item[]).filter((x) => x.group)];
     set(merged);
     remote?.replaceAll(prev, own);

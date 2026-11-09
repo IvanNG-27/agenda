@@ -17,6 +17,8 @@ export type EditorRequest = {
   id?: string;
   subjectId?: string;
   date?: string;
+  /** Grupo en el que apuntarlo por defecto (si puede editar en él) */
+  group?: string;
 };
 
 type UI = {

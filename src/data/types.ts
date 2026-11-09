@@ -67,6 +67,11 @@ export type State = {
   notes: Note[];
   /** Grupos de los que forma parte (solo con sesión iniciada) */
   groups: Group[];
+  /**
+   * Tareas de grupo que esta persona ha terminado: `grupo/tarea` → fecha (ISO).
+   * Cada miembro marca las suyas: el `done` de una tarea de grupo sale de aquí, no del grupo.
+   */
+  groupDone: Record<string, string>;
 };
 
 /** owner: quien lo creó (administra) · editor: puede añadir y cambiar · viewer: solo ve */

@@ -56,6 +56,7 @@ export const initialState = (): State => ({
   studyLog: [],
   notes: [],
   groups: [],
+  groupDone: {},
 });
 
 /** Primer color de la rotación que aún no usa ninguna asignatura (o el siguiente en rotación si están todos). */

@@ -39,7 +39,12 @@ export function Editor({ req, state, today, desktop, onClose }: Props) {
   // Dónde se apunta: '' = solo yo; si no, el id del grupo. Lo ya creado se queda donde está.
   const reqSubject = state.subjects.find((s) => s.id === req.subjectId);
   const [where, setWhere] = useState(
-    existing?.group ?? (reqSubject?.group && canEdit(reqSubject, state) ? reqSubject.group : ''),
+    existing?.group ??
+      (req.group && targets.some((g) => g.id === req.group)
+        ? req.group
+        : reqSubject?.group && canEdit(reqSubject, state)
+          ? reqSubject.group
+          : ''),
   );
   const subjects = state.subjects.filter((s) => (s.group ?? '') === where);
   const group = groupOf(state, where);

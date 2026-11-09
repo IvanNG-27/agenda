@@ -58,6 +58,10 @@ export function PrivacyView({ desktop }: { desktop: boolean }) {
             con quien quieras. Quien administra puede quitar a cualquier miembro; al hacerlo, el código deja de servir.
           </li>
           <li>
+            <strong>Tareas hechas:</strong> marcar como hecha una tarea del grupo solo cambia para ti. Se guarda en tu
+            cuenta, no en el grupo, y los demás miembros no lo ven.
+          </li>
+          <li>
             <strong>Recordatorios:</strong> los avisos de un elemento del grupo los reciben todos sus miembros que tengan
             las notificaciones activadas.
           </li>
