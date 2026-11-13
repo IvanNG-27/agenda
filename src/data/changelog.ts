@@ -8,6 +8,13 @@ export type Release = { version: string; changes: string[] };
 
 export const CHANGELOG: Release[] = [
   {
+    version: '1.8.3',
+    changes: [
+      '📂 En el menú lateral del ordenador, tus asignaturas y las de cada grupo se pueden plegar y desplegar. Nocta recuerda cómo lo dejaste.',
+      '🔥 Los exámenes de tus grupos también tienen «He estudiado hoy» y suman a tu racha. Es solo tuya: no cambia la de nadie más del grupo.',
+    ],
+  },
+  {
     version: '1.8.2',
     changes: [
       '👥 Ahora se distingue de un vistazo lo tuyo de lo de tus grupos: las tareas, exámenes y eventos de un grupo llevan su nombre y su color.',

@@ -19,6 +19,7 @@ function load(): State {
           notes: parsed.notes ?? [],
           groups: parsed.groups ?? [],
           groupDone: parsed.groupDone ?? {},
+          groupStudy: parsed.groupStudy ?? {},
         };
       }
     }
@@ -80,7 +81,7 @@ export const editableGroups = (s: State = state) => s.groups.filter((g) => g.rol
 /** Solo lo personal (copias de seguridad, fusión al iniciar sesión…). */
 export function personalOnly(s: State): State {
   const own = <T extends Item>(list: T[]) => list.filter((x) => !x.group);
-  return { ...s, subjects: own(s.subjects), tasks: own(s.tasks), exams: own(s.exams), events: own(s.events), notes: own(s.notes), groups: [], groupDone: {} };
+  return { ...s, subjects: own(s.subjects), tasks: own(s.tasks), exams: own(s.exams), events: own(s.events), notes: own(s.notes), groups: [], groupDone: {}, groupStudy: {} };
 }
 
 /** Destino de los cambios en la nube (Firebase) mientras hay sesión iniciada. Cada elemento sabe si es de un grupo. */
@@ -99,6 +100,8 @@ export type Remote = {
   putStudyLog(days: string[]): void;
   /** Marca (fecha) o desmarca (null) como terminada para esta persona una tarea de grupo */
   putGroupDone(group: string, task: string, doneAt: string | null): void;
+  /** Días que esta persona ha estudiado para un examen de grupo (vacío = ninguno) */
+  putGroupStudy(group: string, exam: string, days: string[]): void;
   /** Solo lo personal: los grupos no se tocan al importar una copia */
   replaceAll(prev: State, next: State): void;
 };
@@ -125,12 +128,25 @@ const withMyDone = (t: Task, map: Record<string, string>): Task => {
   return { ...t, done: !!doneAt, doneAt };
 };
 
+// Exámenes de grupo: los días estudiados (y la racha) son de cada persona (state.groupStudy).
+const withMyStudy = (e: Exam, map: Record<string, string[]>): Exam => {
+  if (!e.group) return e;
+  const days = map[doneKey(e)];
+  return { ...e, studyDays: days?.length ? days : undefined };
+};
+
 /** Aplica lo que llega de la nube para un grupo: sustituye sus elementos de esa lista. */
 export function applyGroupList(groupId: string, key: ListKey, items: Item[]) {
   const others = (state[key] as Item[]).filter((x) => x.group !== groupId);
   let mine: Item[] = items.map((x) => ({ ...x, group: groupId }));
   if (key === 'tasks') mine = mine.map((t) => withMyDone(t as Task, state.groupDone));
+  if (key === 'exams') mine = mine.map((e) => withMyStudy(e as Exam, state.groupStudy));
   set({ ...state, [key]: [...others, ...mine] } as State);
+}
+
+/** Días estudiados por esta persona en exámenes de grupo (de la nube). */
+export function applyGroupStudy(groupStudy: Record<string, string[]>) {
+  set({ ...state, groupStudy, exams: state.exams.map((e) => withMyStudy(e, groupStudy)) });
 }
 
 /** Tareas de grupo que esta persona ha terminado (de la nube). */
@@ -146,8 +162,10 @@ export function applyGroup(group: Group) {
 
 /** Quita de este dispositivo un grupo y todo lo suyo (al salir, ser expulsado o borrarse el grupo). */
 export function dropGroup(groupId: string) {
-  const groupDone = Object.fromEntries(Object.entries(state.groupDone).filter(([k]) => !k.startsWith(`${groupId}/`)));
-  const next = { ...state, groups: state.groups.filter((g) => g.id !== groupId), groupDone } as State;
+  const other = ([k]: [string, unknown]) => !k.startsWith(`${groupId}/`);
+  const groupDone = Object.fromEntries(Object.entries(state.groupDone).filter(other));
+  const groupStudy = Object.fromEntries(Object.entries(state.groupStudy).filter(other));
+  const next = { ...state, groups: state.groups.filter((g) => g.id !== groupId), groupDone, groupStudy } as State;
   for (const key of LISTS) (next[key] as Item[]) = (state[key] as Item[]).filter((x) => x.group !== groupId);
   set(next);
 }
@@ -226,10 +244,13 @@ export const actions = {
     set({ ...state, exams: state.exams.filter((e) => e.id !== id) });
     remote?.removeExam(exam);
   },
-  /** Marca o desmarca "He estudiado hoy" en un examen. Solo en los personales: la racha es de cada uno. */
+  /**
+   * Marca o desmarca "He estudiado hoy" en un examen. En los de grupo también, pero solo para esta persona:
+   * sus días van aparte (groupStudy) y la racha es de cada uno.
+   */
   toggleStudied(examId: string, today: string) {
     const exam = state.exams.find((e) => e.id === examId);
-    if (!exam || exam.group) return;
+    if (!exam) return;
     const days = exam.studyDays ?? [];
     const studied = !days.includes(today);
     const studyDays = studied ? [...days, today].sort() : days.filter((d) => d !== today);
@@ -240,7 +261,16 @@ export const actions = {
         : !studied && !otherToday
           ? state.studyLog.filter((d) => d !== today)
           : state.studyLog;
-    actions.updateExam(examId, { studyDays });
+    if (exam.group) {
+      const key = doneKey(exam);
+      const groupStudy = { ...state.groupStudy };
+      if (studyDays.length) groupStudy[key] = studyDays;
+      else delete groupStudy[key];
+      set({ ...state, groupStudy, exams: state.exams.map((e) => (e.id === examId && e.group === exam.group ? withMyStudy(e, groupStudy) : e)) });
+      remote?.putGroupStudy(exam.group, exam.id, studyDays);
+    } else {
+      actions.updateExam(examId, { studyDays });
+    }
     if (studyLog !== state.studyLog) {
       set({ ...state, studyLog });
       remote?.putStudyLog(studyLog);
@@ -330,7 +360,7 @@ export const actions = {
   replaceAll(next: State) {
     const prev = personalOnly(state);
     const own = personalOnly(next);
-    const merged = { ...own, groups: state.groups, groupDone: state.groupDone } as State;
+    const merged = { ...own, groups: state.groups, groupDone: state.groupDone, groupStudy: state.groupStudy } as State;
     for (const key of LISTS) (merged[key] as Item[]) = [...(own[key] as Item[]), ...(state[key] as Item[]).filter((x) => x.group)];
     set(merged);
     remote?.replaceAll(prev, own);

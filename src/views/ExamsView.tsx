@@ -31,7 +31,7 @@ export function ExamsView({ state, today, desktop }: Props) {
         {desktop && <DesktopActions state={state} today={today} label="+ Nuevo examen" req={{ kind: 'exam' }} />}
       </PageHeader>
 
-      {(mine.length > 0 || state.studyLog.length > 0) && (
+      {(upcoming.length > 0 || state.studyLog.length > 0) && (
         <section>
           <SectionHeader>Racha de estudio</SectionHeader>
           <StudyStreak studyLog={state.studyLog} today={today} />
@@ -62,7 +62,7 @@ export function ExamsView({ state, today, desktop }: Props) {
                   {g.name}
                   <span className="exam-scope__sub">del grupo</span>
                 </h2>
-                {list.length ? grid(list, false) : <Empty>Sin exámenes del grupo a la vista</Empty>}
+                {list.length ? grid(list, true) : <Empty>Sin exámenes del grupo a la vista</Empty>}
               </section>
             );
           })}

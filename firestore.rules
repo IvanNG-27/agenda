@@ -135,6 +135,16 @@ service cloud.firestore {
         && isoDate(d.doneAt);
     }
 
+    // Días que esta persona ha estudiado para un examen de grupo (users/{uid}/groupStudy/{grupo}__{examen})
+    function validGroupStudy(d, id) {
+      return d.keys().hasOnly(['group', 'exam', 'days'])
+        && d.keys().hasAll(['group', 'exam', 'days'])
+        && d.group is string && d.group.matches('^[A-Za-z0-9]{1,40}$')
+        && d.exam is string && d.exam.matches('^[A-Za-z0-9_-]{1,60}$')
+        && id == d.group + '__' + d.exam
+        && dayList(d.days) && d.days.size() > 0;
+    }
+
     function validProfile(d) {
       return d.keys().hasOnly(['userName', 'studyLog'])
         && (!('userName' in d) || (d.userName is string && d.userName.size() <= 40))
@@ -220,6 +230,10 @@ service cloud.firestore {
       match /devices/{id} {
         allow read, delete: if isOwner(uid);
         allow create, update: if isOwner(uid) && validDevice(request.resource.data);
+      }
+      match /groupStudy/{id} {
+        allow read, delete: if isOwner(uid);
+        allow create, update: if isOwner(uid) && validGroupStudy(request.resource.data, id);
       }
       match /groupDone/{id} {
         allow read, delete: if isOwner(uid);

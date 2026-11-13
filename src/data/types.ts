@@ -72,6 +72,11 @@ export type State = {
    * Cada miembro marca las suyas: el `done` de una tarea de grupo sale de aquí, no del grupo.
    */
   groupDone: Record<string, string>;
+  /**
+   * Días que esta persona ha marcado "He estudiado hoy" en exámenes de grupo: `grupo/examen` → días (ISO).
+   * La racha es de cada uno: los `studyDays` de un examen de grupo salen de aquí, no del grupo.
+   */
+  groupStudy: Record<string, string[]>;
 };
 
 /** owner: quien lo creó (administra) · editor: puede añadir y cambiar · viewer: solo ve */
