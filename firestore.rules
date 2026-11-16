@@ -145,6 +145,15 @@ service cloud.firestore {
         && dayList(d.days) && d.days.size() > 0;
     }
 
+    // Asignatura de grupo que esta persona tiene convalidada (users/{uid}/groupSkip/{grupo}__{asignatura})
+    function validGroupSkip(d, id) {
+      return d.keys().hasOnly(['group', 'subject'])
+        && d.keys().hasAll(['group', 'subject'])
+        && d.group is string && d.group.matches('^[A-Za-z0-9]{1,40}$')
+        && d.subject is string && d.subject.matches('^[A-Za-z0-9_-]{1,60}$')
+        && id == d.group + '__' + d.subject;
+    }
+
     function validProfile(d) {
       return d.keys().hasOnly(['userName', 'studyLog'])
         && (!('userName' in d) || (d.userName is string && d.userName.size() <= 40))
@@ -230,6 +239,10 @@ service cloud.firestore {
       match /devices/{id} {
         allow read, delete: if isOwner(uid);
         allow create, update: if isOwner(uid) && validDevice(request.resource.data);
+      }
+      match /groupSkip/{id} {
+        allow read, delete: if isOwner(uid);
+        allow create, update: if isOwner(uid) && validGroupSkip(request.resource.data, id);
       }
       match /groupStudy/{id} {
         allow read, delete: if isOwner(uid);

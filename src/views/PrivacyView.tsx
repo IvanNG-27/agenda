@@ -63,6 +63,10 @@ export function PrivacyView({ desktop }: { desktop: boolean }) {
             y no cuenta para su racha.
           </li>
           <li>
+            <strong>Convalidadas:</strong> si marcas una asignatura del grupo como convalidada, se guarda en tu cuenta y
+            solo deja de salirte a ti. Los demás miembros no lo ven.
+          </li>
+          <li>
             <strong>Recordatorios:</strong> los avisos de un elemento del grupo los reciben todos sus miembros que tengan
             las notificaciones activadas.
           </li>

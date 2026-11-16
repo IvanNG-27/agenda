@@ -370,6 +370,42 @@ function GroupCard({ group: g, state }: { group: Group; state: State }) {
             )}
           </div>
 
+          {state.subjects.some((x) => x.group === g.id) && (
+            <div className="group-card__block">
+              <h3 className="group-card__title">Convalidadas</h3>
+              <p className="backup__text">
+                Marca las asignaturas que tienes convalidadas: dejarás de ver sus tareas y exámenes. Solo cambia para ti; el resto
+                del grupo las sigue viendo.
+              </p>
+              <ul className="group-members">
+                {state.subjects
+                  .filter((x) => x.group === g.id)
+                  .map((x) => {
+                    const on = state.groupSkip.includes(`${g.id}/${x.id}`);
+                    return (
+                      <li key={x.id}>
+                        <label className="check-row group-skip">
+                          <button
+                            type="button"
+                            className="checkbox"
+                            role="checkbox"
+                            aria-checked={on}
+                            aria-label={`${x.name} convalidada`}
+                            onClick={() => actions.toggleConvalidada(x.id)}
+                          >
+                            {on && <Icon name="check" size={16} />}
+                          </button>
+                          <span className="dot dot--10" style={{ background: colorCss(x.color) }} />
+                          <span className={on ? 'group-skip__name is-skipped' : 'group-skip__name'}>{x.name}</span>
+                          {on && <span className="group-role">Convalidada</span>}
+                        </label>
+                      </li>
+                    );
+                  })}
+              </ul>
+            </div>
+          )}
+
           {error && <p className="backup__text backup__text--error" role="alert">{error}</p>}
 
           <div className="backup__actions">

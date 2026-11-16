@@ -2470,3 +2470,22 @@ label.field .field__label {
     animation: none;
   }
 }
+
+/* ---------- Grupos: asignaturas convalidadas (1.8.4) ---------- */
+.group-skip {
+  flex: 1;
+  min-width: 0;
+  font: var(--t-body);
+}
+.group-skip__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color 0.15s ease;
+}
+.group-skip__name.is-skipped {
+  color: var(--ink-muted);
+  text-decoration: line-through;
+}

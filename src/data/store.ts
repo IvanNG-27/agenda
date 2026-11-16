@@ -20,6 +20,7 @@ function load(): State {
           groups: parsed.groups ?? [],
           groupDone: parsed.groupDone ?? {},
           groupStudy: parsed.groupStudy ?? {},
+          groupSkip: parsed.groupSkip ?? [],
         };
       }
     }
@@ -81,7 +82,7 @@ export const editableGroups = (s: State = state) => s.groups.filter((g) => g.rol
 /** Solo lo personal (copias de seguridad, fusión al iniciar sesión…). */
 export function personalOnly(s: State): State {
   const own = <T extends Item>(list: T[]) => list.filter((x) => !x.group);
-  return { ...s, subjects: own(s.subjects), tasks: own(s.tasks), exams: own(s.exams), events: own(s.events), notes: own(s.notes), groups: [], groupDone: {}, groupStudy: {} };
+  return { ...s, subjects: own(s.subjects), tasks: own(s.tasks), exams: own(s.exams), events: own(s.events), notes: own(s.notes), groups: [], groupDone: {}, groupStudy: {}, groupSkip: [] };
 }
 
 /** Destino de los cambios en la nube (Firebase) mientras hay sesión iniciada. Cada elemento sabe si es de un grupo. */
@@ -102,6 +103,8 @@ export type Remote = {
   putGroupDone(group: string, task: string, doneAt: string | null): void;
   /** Días que esta persona ha estudiado para un examen de grupo (vacío = ninguno) */
   putGroupStudy(group: string, exam: string, days: string[]): void;
+  /** Marca (true) o desmarca una asignatura de grupo como convalidada para esta persona */
+  putGroupSkip(group: string, subject: string, on: boolean): void;
   /** Solo lo personal: los grupos no se tocan al importar una copia */
   replaceAll(prev: State, next: State): void;
 };
@@ -144,6 +147,32 @@ export function applyGroupList(groupId: string, key: ListKey, items: Item[]) {
   set({ ...state, [key]: [...others, ...mine] } as State);
 }
 
+/** Asignaturas de grupo convalidadas por esta persona (de la nube). */
+export function applyGroupSkip(groupSkip: string[]) {
+  set({ ...state, groupSkip });
+}
+
+/**
+ * Lo que esta persona ve: sin las asignaturas de grupo que tiene convalidadas ni sus tareas y exámenes.
+ * Lo usan todas las pantallas (menos Ajustes, para poder desmarcarlas) y los recordatorios.
+ */
+let lastIn: State | null = null;
+let lastOut: State | null = null;
+export function visible(s: State): State {
+  if (!s.groupSkip.length) return s;
+  if (s === lastIn && lastOut) return lastOut;
+  const skip = new Set(s.groupSkip);
+  const hidden = new Set(s.subjects.filter((x) => x.group && skip.has(`${x.group}/${x.id}`)).map((x) => x.id));
+  lastIn = s;
+  lastOut = {
+    ...s,
+    subjects: s.subjects.filter((x) => !hidden.has(x.id)),
+    tasks: s.tasks.filter((t) => !hidden.has(t.subjectId)),
+    exams: s.exams.filter((e) => !hidden.has(e.subjectId)),
+  };
+  return lastOut;
+}
+
 /** Días estudiados por esta persona en exámenes de grupo (de la nube). */
 export function applyGroupStudy(groupStudy: Record<string, string[]>) {
   set({ ...state, groupStudy, exams: state.exams.map((e) => withMyStudy(e, groupStudy)) });
@@ -165,7 +194,8 @@ export function dropGroup(groupId: string) {
   const other = ([k]: [string, unknown]) => !k.startsWith(`${groupId}/`);
   const groupDone = Object.fromEntries(Object.entries(state.groupDone).filter(other));
   const groupStudy = Object.fromEntries(Object.entries(state.groupStudy).filter(other));
-  const next = { ...state, groups: state.groups.filter((g) => g.id !== groupId), groupDone, groupStudy } as State;
+  const groupSkip = state.groupSkip.filter((k) => !k.startsWith(`${groupId}/`));
+  const next = { ...state, groups: state.groups.filter((g) => g.id !== groupId), groupDone, groupStudy, groupSkip } as State;
   for (const key of LISTS) (next[key] as Item[]) = (state[key] as Item[]).filter((x) => x.group !== groupId);
   set(next);
 }
@@ -352,6 +382,15 @@ export const actions = {
       state.subjects.filter((s) => s.group === subject.group).forEach((s, i) => remote?.putSubject(s, i));
     }
   },
+  /** Marca o desmarca como convalidada (solo para esta persona) una asignatura de grupo. */
+  toggleConvalidada(subjectId: string) {
+    const subject = state.subjects.find((x) => x.id === subjectId);
+    if (!subject?.group) return;
+    const key = `${subject.group}/${subject.id}`;
+    const on = !state.groupSkip.includes(key);
+    set({ ...state, groupSkip: on ? [...state.groupSkip, key] : state.groupSkip.filter((k) => k !== key) });
+    remote?.putGroupSkip(subject.group, subject.id, on);
+  },
   setUserName(userName: string) {
     set({ ...state, userName });
     remote?.putProfile({ userName });
@@ -360,7 +399,7 @@ export const actions = {
   replaceAll(next: State) {
     const prev = personalOnly(state);
     const own = personalOnly(next);
-    const merged = { ...own, groups: state.groups, groupDone: state.groupDone, groupStudy: state.groupStudy } as State;
+    const merged = { ...own, groups: state.groups, groupDone: state.groupDone, groupStudy: state.groupStudy, groupSkip: state.groupSkip } as State;
     for (const key of LISTS) (merged[key] as Item[]) = [...(own[key] as Item[]), ...(state[key] as Item[]).filter((x) => x.group)];
     set(merged);
     remote?.replaceAll(prev, own);

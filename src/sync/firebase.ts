@@ -65,6 +65,7 @@ import {
   applyGroup,
   applyGroupDone,
   applyGroupStudy,
+  applyGroupSkip,
   applyGroupList,
   applyRemote,
   dropGroup,
@@ -75,6 +76,7 @@ import {
   subscribeStore,
   type ListKey,
   type Remote,
+  visible,
 } from '../data/store';
 import { upcomingReminders } from '../lib/reminders';
 import { cleanDays, cleanEvent, cleanExam, cleanNote, cleanSubject, cleanTask } from '../data/backup';
@@ -227,7 +229,7 @@ export async function deleteAccount() {
   try {
     const base = doc(db, 'users', u.uid);
     const ops: BatchOp[] = [];
-    for (const name of ['tasks', 'exams', 'events', 'subjects', 'notes', 'devices', 'groups', 'groupDone', 'groupStudy']) {
+    for (const name of ['tasks', 'exams', 'events', 'subjects', 'notes', 'devices', 'groups', 'groupDone', 'groupStudy', 'groupSkip']) {
       const snap = await getDocsFromServer(collection(base, name));
       snap.docs.forEach((d) => ops.push((b) => b.delete(d.ref)));
     }
@@ -442,6 +444,20 @@ function listen(u: User) {
       },
       onError,
     ),
+    // Asignaturas de grupo que esta persona tiene convalidadas (solo las oculta para ella)
+    onSnapshot(
+      collection(base, 'groupSkip'),
+      (snap) => {
+        if (snap.metadata.fromCache && snap.empty) return;
+        const keys: string[] = [];
+        for (const d of snap.docs) {
+          const { group, subject } = d.data();
+          if (typeof group === 'string' && typeof subject === 'string') keys.push(`${group}/${subject}`);
+        }
+        applyGroupSkip(keys);
+      },
+      onError,
+    ),
     // Grupos de los que forma parte: se escucha cada uno mientras siga en esta lista
     onSnapshot(
       collection(base, 'groups'),
@@ -535,6 +551,9 @@ function watchGroup(uid: string, gid: string) {
     ...LIST_KEYS.map((key) =>
       onSnapshot(
         collection(g, key),
+        // Con los cambios de metadatos llega también el aviso de "ya está en el servidor": sin él, lo añadido justo
+        // al crear el grupo podía desaparecer de la pantalla (lo pisaba la primera lista, aún vacía, del servidor)
+        { includeMetadataChanges: true },
         (snap) => {
           if (snap.metadata.hasPendingWrites) return;
           let docs = snap.docs.map((d) => ({ ...d.data(), id: d.id }) as Record<string, unknown>);
@@ -560,6 +579,7 @@ function forgetGroup(gid: string) {
       keys.forEach((k) => void deleteDoc(doc(db, 'users', uid, name, k.replace('/', '__'))).catch(() => {}));
     drop('groupDone', of(s.groupDone));
     drop('groupStudy', of(s.groupStudy));
+    drop('groupSkip', s.groupSkip.filter((k) => k.startsWith(`${gid}/`)));
   }
   dropGroup(gid);
 }
@@ -692,7 +712,7 @@ function scheduleReminderSync(uid: string) {
 async function syncReminders(uid: string) {
   if (!remindersLoaded || user?.uid !== uid) return; // sin la lista real de la nube no se borra nada
   // Los vencidos hace menos de 20 min se mantienen: el envío programado puede ir unos minutos tarde
-  const desired = upcomingReminders(getState(), Date.now() - 20 * 60_000);
+  const desired = upcomingReminders(visible(getState()), Date.now() - 20 * 60_000);
   const want = new Map(desired.map((r) => [`${uid}_${r.key}`, r]));
   const ops: BatchOp[] = [];
   for (const [id, r] of want) {
@@ -816,6 +836,10 @@ function makeRemote(base: DocumentReference): Remote {
     removeSubject: (sub) => send(deleteDoc(ref('subjects', sub))),
     putProfile: (p) => send(setDoc(base, p, { merge: true })),
     putStudyLog: (studyLog) => send(setDoc(base, { studyLog }, { merge: true })),
+    putGroupSkip: (group, subject, on) => {
+      const d = doc(base, 'groupSkip', `${group}__${subject}`);
+      send(on ? setDoc(d, { group, subject }) : deleteDoc(d));
+    },
     putGroupStudy: (group, exam, days) => {
       const d = doc(base, 'groupStudy', `${group}__${exam}`);
       send(days.length ? setDoc(d, { group, exam, days }) : deleteDoc(d));

@@ -77,6 +77,11 @@ export type State = {
    * La racha es de cada uno: los `studyDays` de un examen de grupo salen de aquí, no del grupo.
    */
   groupStudy: Record<string, string[]>;
+  /**
+   * Asignaturas de grupo que esta persona tiene convalidadas: `grupo/asignatura`.
+   * Solo para ella: no ve esas asignaturas ni sus tareas y exámenes; al resto del grupo no le cambia nada.
+   */
+  groupSkip: string[];
 };
 
 /** owner: quien lo creó (administra) · editor: puede añadir y cambiar · viewer: solo ve */

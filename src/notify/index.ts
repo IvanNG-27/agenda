@@ -6,7 +6,7 @@
 //   (ver src/sync/firebase.ts y scripts/reminders/send.mjs).
 // - Web sin push: la propia app avisa mientras está abierta.
 import { useSyncExternalStore } from 'react';
-import { getState } from '../data/store';
+import { getState, visible } from '../data/store';
 import { upcomingReminders, type Reminder } from '../lib/reminders';
 import { enablePush } from '../sync';
 
@@ -121,7 +121,7 @@ function tick() {
   }
   // Si la app estuvo cerrada, se avisa de lo que venció en las últimas 2 horas, no de todo lo antiguo
   const from = Math.max(readLast() || now, now - 2 * 60 * 60_000);
-  for (const r of upcomingReminders(getState(), from)) {
+  for (const r of upcomingReminders(visible(getState()), from)) {
     if (r.at > now) break;
     void show(r).catch(() => {});
   }

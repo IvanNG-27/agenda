@@ -8,6 +8,14 @@ export type Release = { version: string; changes: string[] };
 
 export const CHANGELOG: Release[] = [
   {
+    version: '1.8.4',
+    changes: [
+      '🎓 ¿Tienes convalidada alguna asignatura de tu grupo? Márcala en Ajustes → Grupos → Convalidadas y dejarás de ver sus tareas y exámenes.',
+      'Solo cambia para ti: tus compañeros la siguen viendo. Puedes desmarcarla cuando quieras.',
+      'Arreglado: al crear un grupo y añadirle varias asignaturas seguidas, alguna podía desaparecer de la pantalla hasta recargar.',
+    ],
+  },
+  {
     version: '1.8.3',
     changes: [
       '📂 En el menú lateral del ordenador, tus asignaturas y las de cada grupo se pueden plegar y desplegar. Nocta recuerda cómo lo dejaste.',

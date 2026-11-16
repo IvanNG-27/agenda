@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { useStore, useToday } from './data/store';
+import { useStore, useToday, visible } from './data/store';
 import { Sidebar, TabBar } from './components/Navigation';
 import { Editor } from './components/Editor';
 import { markReleasesSeen, pendingReleases, WhatsNew } from './components/WhatsNew';
@@ -18,7 +18,9 @@ import { NotesView } from './views/NotesView';
 import { UIContext, useMediaQuery, useRoute, type EditorRequest } from './ui';
 
 export default function App() {
-  const state = useStore();
+  const all = useStore();
+  // Sin las asignaturas de grupo convalidadas (ni sus tareas y exámenes). Ajustes ve todo para poder desmarcarlas.
+  const state = visible(all);
   const today = useToday();
   // Semana de Halloween (26 oct – 1 nov): Nocta se disfraza; el 2 de noviembre vuelve a ser la de siempre
   const halloween = useHalloween(today) === 'on';
@@ -63,7 +65,7 @@ export default function App() {
       view = <SubjectView {...props} id={route.id} />;
       break;
     case 'ajustes':
-      view = <SettingsView state={state} desktop={desktop} />;
+      view = <SettingsView state={all} desktop={desktop} />;
       break;
     case 'privacidad':
       view = <PrivacyView desktop={desktop} />;
