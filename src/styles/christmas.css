@@ -1,0 +1,458 @@
+/* Navidad (1 dic – 8 ene). Todo cuelga de :root[data-season='navidad'], que solo se pone esas fechas
+   (src/components/Christmas.tsx y useSeasonTheme): fuera de ellas estas reglas no se aplican. */
+
+:root[data-season='navidad'] {
+  /* Noche de abeto, nieve, oro y rojo */
+  --bg-000: #06140f;
+  --bg-100: #0c2019;
+  --bg-200: #143024;
+  --line: #24493a;
+  --ink: #f6f2e7;
+  --ink-muted: #a8c4b5;
+  --accent: #f2c14e;
+  --accent-ink: #2a1a00;
+  --exam: #ff5b5b;
+  --hot-track: rgba(42, 26, 0, 0.25);
+  --scrim: rgba(3, 10, 7, 0.8);
+  --xm-red: #d62839;
+  --xm-gold: #f2c14e;
+  --xm-snow: #f6f2e7;
+  --font-xmas: 'Mountains of Christmas', 'Space Grotesk', system-ui, sans-serif;
+}
+
+/* Títulos con letra navideña (solo títulos: el resto sigue siendo fácil de leer) */
+:root[data-season='navidad'] .display,
+:root[data-season='navidad'] .logo,
+:root[data-season='navidad'] .form__title,
+:root[data-season='navidad'] .welcome__title {
+  font-family: var(--font-xmas);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+:root[data-season='navidad'] .display {
+  color: var(--ink);
+  text-shadow: 0 2px 0 var(--xm-red), 0 0 18px rgba(242, 193, 78, 0.25);
+}
+
+:root[data-season='navidad'] .logo::after {
+  content: ' 🎄';
+}
+
+/* Estados vacíos con un muñeco de nieve */
+:root[data-season='navidad'] .empty::before {
+  content: '⛄';
+  display: block;
+  font-size: 28px;
+  margin-bottom: var(--space-2);
+}
+
+/* El examen más cercano, como un regalo con lazo dorado */
+:root[data-season='navidad'] .exam--hot {
+  box-shadow: inset 0 0 0 2px rgba(242, 193, 78, 0.55);
+}
+
+/* El botón + brilla como una bola del árbol */
+:root[data-season='navidad'] .fab {
+  box-shadow: 0 0 0 3px rgba(214, 40, 57, 0.35), 0 0 24px rgba(242, 193, 78, 0.45);
+}
+
+/* Bastón de caramelo bajo la sección activa del menú */
+:root[data-season='navidad'] .menu__item.is-active {
+  box-shadow: inset 3px 0 0 transparent;
+  background-image: linear-gradient(var(--bg-200), var(--bg-200)),
+    repeating-linear-gradient(135deg, var(--xm-red) 0 6px, var(--xm-snow) 6px 12px);
+  background-size: 100% 100%, 100% 3px;
+  background-position: 0 0, 0 100%;
+  background-repeat: no-repeat;
+}
+
+/* ---------- Decoraciones ---------- */
+
+.xm {
+  position: fixed;
+  inset: 0;
+  z-index: 30; /* encima del contenido, debajo de los diálogos (50) */
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* Nieve que cae despacio y se balancea */
+.xm-flake {
+  position: absolute;
+  top: -12px;
+  border-radius: 50%;
+  background: var(--xm-snow);
+  opacity: 0.75;
+  animation: xm-fall linear infinite;
+}
+
+.xm-flake--star {
+  width: auto !important;
+  height: auto !important;
+  background: none;
+  color: var(--xm-snow);
+  line-height: 1;
+  opacity: 0.6;
+}
+
+@keyframes xm-fall {
+  0% {
+    transform: translate(0, -5vh) rotate(0deg);
+  }
+  25% {
+    transform: translate(var(--sway), 22vh) rotate(90deg);
+  }
+  50% {
+    transform: translate(0, 50vh) rotate(180deg);
+  }
+  75% {
+    transform: translate(calc(var(--sway) * -1), 78vh) rotate(270deg);
+  }
+  100% {
+    transform: translate(0, 108vh) rotate(360deg);
+  }
+}
+
+/* Guirnalda de luces: un cable que ondula y bombillas de colores que parpadean */
+.xm-lights {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 26px;
+  display: flex;
+  justify-content: space-around;
+  padding: 0 8px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 26'%3E%3Cpath d='M0 4Q15 16 30 4T60 4' fill='none' stroke='%232b4a3c' stroke-width='2'/%3E%3C/svg%3E")
+    repeat-x top left / 60px 26px;
+}
+
+.xm-bulb {
+  position: relative;
+  top: 9px;
+  width: 7px;
+  height: 11px;
+  border-radius: 50% 50% 45% 45%;
+  background: var(--c);
+  box-shadow: 0 0 8px 2px var(--c);
+  animation: xm-twinkle 2.4s ease-in-out infinite;
+}
+
+.xm-bulb:nth-child(even) {
+  top: 13px;
+}
+
+.xm-bulb::before {
+  content: '';
+  position: absolute;
+  top: -3px;
+  left: 1.5px;
+  width: 4px;
+  height: 3px;
+  border-radius: 1px;
+  background: #3d5a4c;
+}
+
+.xm-bulb:nth-child(4n + 1) {
+  --c: #ff4d5e;
+}
+
+.xm-bulb:nth-child(4n + 2) {
+  --c: #f2c14e;
+  animation-delay: -0.6s;
+}
+
+.xm-bulb:nth-child(4n + 3) {
+  --c: #4ade80;
+  animation-delay: -1.2s;
+}
+
+.xm-bulb:nth-child(4n) {
+  --c: #60a5fa;
+  animation-delay: -1.8s;
+}
+
+@keyframes xm-twinkle {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+    box-shadow: 0 0 3px 0 var(--c);
+  }
+}
+
+/* El trineo cruza el cielo de vez en cuando */
+.xm-sleigh {
+  position: absolute;
+  top: 12%;
+  left: 0;
+  filter: drop-shadow(0 0 6px rgba(242, 193, 78, 0.35));
+  transform: translateX(-200px);
+  animation: xm-fly 34s linear infinite;
+  animation-delay: 4s;
+}
+
+@keyframes xm-fly {
+  0% {
+    transform: translate(-200px, 20px) rotate(-3deg);
+  }
+  30% {
+    transform: translate(35vw, -10px) rotate(-6deg);
+  }
+  45%,
+  100% {
+    transform: translate(110vw, -40px) rotate(-8deg);
+  }
+}
+
+/* La nariz de Rudolph brilla */
+.xm-nose {
+  animation: xm-glow 1.4s ease-in-out infinite;
+}
+
+@keyframes xm-glow {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 0 #ff3b3b);
+  }
+  50% {
+    filter: drop-shadow(0 0 3px #ff3b3b);
+  }
+}
+
+/* Cascanueces: lo mueve JavaScript (src/components/Christmas.tsx) con translate desde la esquina de arriba.
+   Capa propia (9): encima del contenido, debajo del botón + y de la barra de pestañas (10) y de los diálogos.
+   --m-left / --m-right: hasta dónde llega patrullando por cada lado (en px, los lee JavaScript). */
+.xm-nut {
+  --m-left: 24px;
+  --m-right: 24px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 9;
+  width: 44px;
+  height: 104px;
+  cursor: grab;
+  touch-action: none; /* en el móvil, arrastrarlo no mueve la página */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  will-change: transform;
+}
+
+/* El "suelo" por el que patrulla y contra el que cae (solo marca la altura) */
+.xm-nut-floor {
+  position: fixed;
+  left: 0;
+  bottom: var(--space-4);
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.xm-nut.is-drag {
+  cursor: grabbing;
+}
+
+.xm-nut__step,
+.xm-nut__wobble {
+  width: 100%;
+  height: 100%;
+  transform-origin: 50% 100%;
+}
+
+.xm-nut__step {
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.45));
+  transition: transform 0.35s ease;
+}
+
+.xm-nutcracker {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Patrullando: marca el paso */
+.xm-nut.is-patrol .xm-nut__wobble {
+  animation: xm-march 0.45s ease-in-out infinite alternate;
+}
+
+/* Cogido: un poco más grande, colgando de la mano (se balancea según lo rápido que se mueva) y pataleando */
+.xm-nut.is-drag .xm-nut__step {
+  transition: none;
+  transform-origin: 50% 0;
+  transform: rotate(var(--tilt, 0deg)) scale(1.1);
+  filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.55));
+}
+
+.xm-nut.is-drag .xm-nut__wobble {
+  animation: xm-kick 0.18s ease-in-out infinite alternate;
+}
+
+/* Volando/cayendo: sigue colgado del mismo punto que al arrastrarlo, inclinado hacia donde le lleva la inercia */
+.xm-nut.is-fall .xm-nut__step {
+  transition: none;
+  transform-origin: 50% 0;
+  transform: rotate(var(--tilt, 0deg)) scaleY(1.05);
+}
+
+/* Culazo: se aplasta contra el suelo, rebota un poco y se queda sentado, inclinado */
+.xm-nut.is-dizzy .xm-nut__step {
+  transition: none;
+  animation: xm-bump 0.55s cubic-bezier(0.3, 1.4, 0.5, 1) forwards;
+}
+
+/* Caída de poca altura: flexiona las piernas al tocar el suelo y sigue */
+.xm-nut.is-land .xm-nut__step {
+  transition: none;
+  animation: xm-land 0.35s ease-out;
+}
+
+@keyframes xm-land {
+  0% {
+    transform: scale(1.12, 0.85);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+/* Mareado: se tambalea sentado */
+.xm-nut.is-dizzy .xm-nut__wobble {
+  animation: xm-woozy 0.9s ease-in-out 0.55s infinite alternate;
+}
+
+/* Estrellitas dando vueltas encima de la cabeza */
+.xm-stars {
+  position: absolute;
+  left: 50%;
+  top: 10%;
+  width: 0;
+  height: 0;
+  transform: scaleY(0.38);
+  animation: xm-stars-in 0.3s ease-out 0.25s both;
+}
+
+.xm-stars span {
+  position: absolute;
+  left: -6px;
+  top: -8px;
+  color: var(--xm-gold);
+  font-size: 13px;
+  line-height: 1;
+  text-shadow: 0 0 6px rgba(242, 193, 78, 0.8);
+  animation: xm-orbit 1s linear infinite;
+}
+
+.xm-stars span:nth-child(2) {
+  animation-delay: -0.333s;
+}
+
+.xm-stars span:nth-child(3) {
+  animation-delay: -0.667s;
+}
+
+@keyframes xm-march {
+  from {
+    transform: rotate(-3deg) translateY(0);
+  }
+  to {
+    transform: rotate(3deg) translateY(-3px);
+  }
+}
+
+@keyframes xm-kick {
+  from {
+    transform: rotate(-5deg);
+  }
+  to {
+    transform: rotate(5deg);
+  }
+}
+
+@keyframes xm-bump {
+  0% {
+    transform: scale(1.25, 0.6);
+  }
+  45% {
+    transform: translateY(-14%) scale(0.95, 1.05) rotate(-4deg);
+  }
+  100% {
+    transform: scale(1.12, 0.74) rotate(-14deg);
+  }
+}
+
+@keyframes xm-woozy {
+  from {
+    transform: rotate(-5deg);
+  }
+  to {
+    transform: rotate(5deg);
+  }
+}
+
+@keyframes xm-orbit {
+  from {
+    transform: rotate(0deg) translateX(20px) rotate(0deg) scaleY(2.6);
+  }
+  to {
+    transform: rotate(360deg) translateX(20px) rotate(-360deg) scaleY(2.6);
+  }
+}
+
+@keyframes xm-stars-in {
+  from {
+    opacity: 0;
+    transform: scaleY(0.38) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scaleY(0.38);
+  }
+}
+
+/* En el móvil: menos copos, el cascanueces encima de la barra a la izquierda (a la derecha está el +) y más pequeño */
+@media (max-width: 899px) {
+  .xm-flake:nth-child(3n) {
+    display: none;
+  }
+
+  .xm-sleigh {
+    top: 9%;
+    width: 120px;
+    height: 26px;
+  }
+
+  /* Más pequeño; patrulla desde justo a la izquierda del botón + (20 de margen + 56 del botón + 8) hasta el borde */
+  .xm-nut {
+    --m-left: 16px;
+    --m-right: 84px;
+    width: 30px;
+    height: 70px;
+  }
+
+  /* El suelo, encima de la barra de pestañas */
+  .xm-nut-floor {
+    bottom: calc(var(--tabbar-h) + var(--space-2) + env(safe-area-inset-bottom));
+  }
+}
+
+/* Sin movimiento para quien lo tiene desactivado en el sistema: la nieve y el trineo no salen */
+@media (prefers-reduced-motion: reduce) {
+  .xm-snow,
+  .xm-sleigh {
+    display: none;
+  }
+
+  .xm-bulb,
+  .xm-nose,
+  .xm-nut .xm-nut__step,
+  .xm-nut .xm-nut__wobble,
+  .xm-stars,
+  .xm-stars span {
+    animation: none !important;
+  }
+}

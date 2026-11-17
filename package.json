@@ -4,7 +4,7 @@
   "description": "Agenda personal de deberes y exámenes",
   "author": "Iván",
   "private": true,
-  "version": "1.8.4",
+  "version": "1.9.0",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
@@ -84,5 +84,8 @@
   "engines": {
     "node": ">=24",
     "npm": ">=11"
+  },
+  "dependencies": {
+    "@fontsource/mountains-of-christmas": "^5.3.0"
   }
 }

@@ -5,7 +5,8 @@ import { Editor } from './components/Editor';
 import { markReleasesSeen, pendingReleases, WhatsNew } from './components/WhatsNew';
 import { UpdateNotice } from './components/UpdateNotice';
 import { HalloweenDecor, useSeasonTheme } from './components/Halloween';
-import { useHalloween } from './lib/season';
+import { useChristmas, useHalloween } from './lib/season';
+import { ChristmasDecor } from './components/Christmas';
 import { HoyView } from './views/HoyView';
 import { SemanaView } from './views/SemanaView';
 import { CalendarView } from './views/CalendarView';
@@ -24,7 +25,9 @@ export default function App() {
   const today = useToday();
   // Semana de Halloween (26 oct – 1 nov): Nocta se disfraza; el 2 de noviembre vuelve a ser la de siempre
   const halloween = useHalloween(today) === 'on';
-  useSeasonTheme(halloween);
+  // Navidad (1 dic – 8 ene): nieve, luces, trineo y cascanueces; el 9 de enero vuelve a ser la de siempre
+  const christmas = useChristmas(today) === 'on';
+  useSeasonTheme(halloween ? 'halloween' : christmas ? 'navidad' : null);
   const route = useRoute();
   const desktop = useMediaQuery('(min-width: 900px)');
   const [editor, setEditor] = useState<EditorRequest | null>(null);
@@ -115,6 +118,7 @@ export default function App() {
       )}
       <UpdateNotice />
       {halloween && <HalloweenDecor />}
+      {christmas && <ChristmasDecor />}
       {news.length > 0 && !editor && (
         <WhatsNew title="Nocta se ha actualizado" releases={news} onClose={closeNews} />
       )}

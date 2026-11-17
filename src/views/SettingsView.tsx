@@ -17,7 +17,7 @@ import { WhatsNew } from '../components/WhatsNew';
 import { useUpdate } from '../updates';
 import { enableNotifications, testNotification, upgradeToPush, useNotify } from '../notify';
 import { useToday } from '../data/store';
-import { setHalloweenOff, useHalloween } from '../lib/season';
+import { christmasYear, setChristmasOff, setHalloweenOff, useChristmas, useHalloween } from '../lib/season';
 
 type Props = { state: State; desktop: boolean };
 
@@ -37,6 +37,7 @@ export function SettingsView({ state, desktop }: Props) {
       <NotificationsSection />
 
       <HalloweenSection />
+      <ChristmasSection />
 
       <section>
         <SectionHeader>Tu nombre</SectionHeader>
@@ -629,6 +630,31 @@ function HalloweenSection() {
         <div className="backup__actions">
           <button type="button" className="btn btn--secondary" onClick={() => setHalloweenOff(year, season === 'on')}>
             {season === 'on' ? 'Quitar la decoración este año' : 'Volver a ponerla'}
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/** Solo aparece en Navidad: permite quitar (o volver a poner) la decoración esta temporada. */
+function ChristmasSection() {
+  const today = useToday();
+  const season = useChristmas(today);
+  if (season === 'none') return null;
+  const year = christmasYear(today);
+  return (
+    <section>
+      <SectionHeader>Navidad 🎄</SectionHeader>
+      <div className="backup">
+        <p className="backup__text">
+          {season === 'on'
+            ? 'Hasta el 8 de enero, Nocta se viste de Navidad: nieve, luces, el trineo de Papá Noel con sus renos y un cascanueces. El 9 vuelve a ser la de siempre.'
+            : 'Has quitado la decoración de Navidad de este año. Vuelve sola la próxima.'}
+        </p>
+        <div className="backup__actions">
+          <button type="button" className="btn btn--secondary" onClick={() => setChristmasOff(year, season === 'on')}>
+            {season === 'on' ? 'Quitar la decoración esta Navidad' : 'Volver a ponerla'}
           </button>
         </div>
       </div>

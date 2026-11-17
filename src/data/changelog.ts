@@ -8,6 +8,14 @@ export type Release = { version: string; changes: string[] };
 
 export const CHANGELOG: Release[] = [
   {
+    version: '1.9.0',
+    changes: [
+      '🎄 Cada año, del 1 de diciembre al 8 de enero, Nocta se viste de Navidad: nieve, luces de colores y el trineo de Papá Noel con sus renos cruzando el cielo. El 9 de enero vuelve a ser la de siempre.',
+      '💂 Un cascanueces patrulla por la pantalla. Cógelo y lánzalo donde quieras: vuela, rebota y, si cae desde muy alto, se da un buen culazo y se queda mareado un momento antes de volver a su ronda.',
+      'Si prefieres no verlo, puedes quitar la decoración esa Navidad en Ajustes → Navidad.',
+    ],
+  },
+  {
     version: '1.8.4',
     changes: [
       '🎓 ¿Tienes convalidada alguna asignatura de tu grupo? Márcala en Ajustes → Grupos → Convalidadas y dejarás de ver sus tareas y exámenes.',

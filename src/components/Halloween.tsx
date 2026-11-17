@@ -4,20 +4,22 @@ import { useEffect } from 'react';
 import '@fontsource/creepster/latin-400.css'; // el archivo de la fuente solo se descarga si se usa
 import '../styles/halloween.css';
 
-/** Pone o quita el tema en <html> (y el color de la barra del navegador en el móvil). */
-export function useSeasonTheme(on: boolean) {
+const BAR_COLOR = { halloween: '#0c0710', navidad: '#06140f' } as const;
+
+/** Pone o quita el tema de la temporada en <html> (y el color de la barra del navegador en el móvil). */
+export function useSeasonTheme(season: keyof typeof BAR_COLOR | null) {
   useEffect(() => {
-    if (!on) return;
+    if (!season) return;
     const root = document.documentElement;
     const meta = document.querySelector('meta[name="theme-color"]');
     const prev = meta?.getAttribute('content');
-    root.dataset.season = 'halloween';
-    meta?.setAttribute('content', '#0c0710');
+    root.dataset.season = season;
+    meta?.setAttribute('content', BAR_COLOR[season]);
     return () => {
       delete root.dataset.season;
       if (prev) meta?.setAttribute('content', prev);
     };
-  }, [on]);
+  }, [season]);
 }
 
 /** Telaraña en la esquina superior derecha, generada: radios desde la esquina e hilos que cuelgan entre ellos. */
