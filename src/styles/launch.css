@@ -1,0 +1,309 @@
+/* Semana del lanzamiento de GTA VI (19–26 nov 2026). Todo cuelga de :root[data-season='gta'], que solo se pone
+   esa semana (src/components/Launch.tsx y useSeasonTheme): fuera de ella estas reglas no se aplican. */
+
+:root[data-season='gta'] {
+  /* Noche de Miami: morado, rosa neón, naranja de atardecer y turquesa */
+  --bg-000: #12071f;
+  --bg-100: #1c0d2e;
+  --bg-200: #2a1442;
+  --line: #43245e;
+  --ink: #fff3f7;
+  --ink-muted: #c8a6d8;
+  --accent: #ff4f9a;
+  --accent-ink: #1a0010;
+  --exam: #ff9a3c;
+  --hot-track: rgba(26, 0, 16, 0.25);
+  --scrim: rgba(10, 3, 18, 0.82);
+  --vc-pink: #ff3d8b;
+  --vc-orange: #ff9a3c;
+  --vc-yellow: #ffd35c;
+  --vc-teal: #2de2d0;
+  --vc-sunset: linear-gradient(180deg, #ffd35c 0%, #ff9a3c 40%, #ff3d8b 78%, #c13bd1 100%);
+  --font-vc: 'Anton', 'Space Grotesk', system-ui, sans-serif;
+}
+
+/* Cielo de atardecer de fondo (en <html>: el sol y las palmeras van entre el cielo y el contenido) */
+:root[data-season='gta'] {
+  background: radial-gradient(120% 60% at 50% 115%, rgba(255, 120, 80, 0.38), rgba(255, 61, 139, 0.12) 45%, transparent 70%),
+    linear-gradient(180deg, #12071f 0%, #1b0b2e 60%, #2a0f3a 100%);
+  background-attachment: fixed;
+}
+
+/* El contenido deja ver el cielo; las tarjetas siguen opacas para que todo se lea bien */
+:root[data-season='gta'] body,
+:root[data-season='gta'] .main,
+:root[data-season='gta'] .page,
+:root[data-season='gta'] .shell,
+:root[data-season='gta'] .mobile {
+  background: transparent;
+}
+
+/* Menú lateral y panel derecho, translúcidos: se ven las palmeras detrás */
+:root[data-season='gta'] .sidebar,
+:root[data-season='gta'] .panel {
+  background: rgba(28, 13, 46, 0.72);
+}
+
+/* Títulos gruesos, inclinados y con degradado de atardecer y brillo de neón */
+:root[data-season='gta'] .display,
+:root[data-season='gta'] .logo,
+:root[data-season='gta'] .form__title,
+:root[data-season='gta'] .welcome__title {
+  font-family: var(--font-vc);
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+:root[data-season='gta'] .display,
+:root[data-season='gta'] .logo {
+  display: inline-block;
+  transform: skewX(-8deg);
+  background: var(--vc-sunset);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 2px 0 #3a0a3f) drop-shadow(0 0 14px rgba(255, 61, 139, 0.45));
+}
+
+:root[data-season='gta'] .logo::after {
+  content: ' 🌴';
+  -webkit-text-fill-color: initial;
+}
+
+/* Cabeceras de sección como un letrero de neón turquesa */
+:root[data-season='gta'] .section {
+  color: var(--vc-teal);
+  text-shadow: 0 0 8px rgba(45, 226, 208, 0.55);
+}
+
+:root[data-season='gta'] .section--exam {
+  color: var(--vc-orange);
+  text-shadow: 0 0 8px rgba(255, 154, 60, 0.55);
+}
+
+/* Botones principales con el degradado del atardecer */
+:root[data-season='gta'] .btn:not(.btn--secondary),
+:root[data-season='gta'] .fab {
+  background: linear-gradient(135deg, var(--vc-orange), var(--vc-pink));
+  color: #1a0010;
+}
+
+:root[data-season='gta'] .fab {
+  box-shadow: 0 0 0 3px rgba(255, 61, 139, 0.3), 0 0 26px rgba(255, 61, 139, 0.55);
+}
+
+/* Sección activa del menú con raya de neón rosa */
+:root[data-season='gta'] .menu__item.is-active {
+  box-shadow: inset 3px 0 0 var(--vc-pink), 0 0 14px rgba(255, 61, 139, 0.18);
+}
+
+/* El examen más cercano con borde de neón */
+:root[data-season='gta'] .exam--hot {
+  box-shadow: 0 0 0 2px var(--vc-pink), 0 0 22px rgba(255, 61, 139, 0.45);
+}
+
+/* Estados vacíos con una palmera */
+:root[data-season='gta'] .empty::before {
+  content: '🌴';
+  display: block;
+  font-size: 28px;
+  margin-bottom: var(--space-2);
+}
+
+/* ---------- Decoración ---------- */
+
+/* Fondo: por detrás del contenido */
+.vc-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* Sol de atardecer con rayas, medio escondido en el horizonte */
+.vc-sun {
+  position: absolute;
+  left: 50%;
+  bottom: -170px;
+  width: 420px;
+  height: 420px;
+  margin-left: -210px;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #ffd35c 0%, #ff9a3c 45%, #ff3d8b 85%);
+  opacity: 0.32;
+  filter: blur(0.3px);
+  -webkit-mask: linear-gradient(#000 0 0) top / 100% 46% no-repeat,
+    repeating-linear-gradient(180deg, #000 0 16px, transparent 16px 24px);
+  mask: linear-gradient(#000 0 0) top / 100% 46% no-repeat, repeating-linear-gradient(180deg, #000 0 16px, transparent 16px 24px);
+}
+
+/* Palmeras en silueta en las esquinas de abajo, mecidas por la brisa */
+.vc-palm {
+  position: absolute;
+  bottom: -20px;
+  color: #0a0211;
+  filter: drop-shadow(0 0 1px rgba(255, 61, 139, 0.6)) drop-shadow(0 0 22px rgba(255, 61, 139, 0.35));
+  transform-origin: 50% 100%;
+}
+
+.vc-palm--l {
+  left: -18px;
+  animation: vc-sway 7s ease-in-out infinite;
+}
+
+.vc-palm--r {
+  right: -18px;
+  height: 260px;
+}
+
+.vc-palm--r path,
+.vc-palm--r circle {
+  animation: none;
+}
+
+@keyframes vc-sway {
+  0%,
+  100% {
+    transform: rotate(-1.5deg);
+  }
+  50% {
+    transform: rotate(1.5deg);
+  }
+}
+
+/* Estrellas de "nivel de búsqueda" (una por tarea atrasada), arriba a la derecha */
+.vc-hud {
+  position: fixed;
+  top: 10px;
+  right: 14px;
+  z-index: 30;
+  pointer-events: none;
+}
+
+.vc-wanted {
+  display: flex;
+  gap: 2px;
+  font: 400 18px/1 var(--font-vc);
+}
+
+.vc-wanted span {
+  color: transparent;
+  -webkit-text-stroke: 1.2px rgba(255, 243, 247, 0.55);
+}
+
+.vc-wanted span.is-on {
+  color: #fff3f7;
+  -webkit-text-stroke: 1.2px #12071f;
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.6);
+  animation: vc-blink 1.1s steps(2, jump-none) infinite;
+}
+
+@keyframes vc-blink {
+  50% {
+    color: var(--vc-yellow);
+  }
+}
+
+/* Cartel de misión cumplida al terminar una tarea */
+.vc-mission {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 38%;
+  z-index: 45; /* encima de todo menos de los diálogos */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+  animation: vc-mission 2.6s ease-out forwards;
+}
+
+.vc-mission__title {
+  font: 400 clamp(36px, 8vw, 72px) / 1 var(--font-vc);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  transform: skewX(-8deg);
+  background: var(--vc-sunset);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 3px 0 #3a0a3f) drop-shadow(0 0 20px rgba(255, 61, 139, 0.6));
+}
+
+.vc-mission__sub {
+  margin-top: 6px;
+  font: 400 clamp(16px, 3vw, 22px) / 1 var(--font-vc);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--vc-teal);
+  text-shadow: 0 0 10px rgba(45, 226, 208, 0.7);
+}
+
+@keyframes vc-mission {
+  0% {
+    opacity: 0;
+    transform: scale(1.25);
+  }
+  12%,
+  78% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
+/* En el móvil: palmeras y sol más pequeños; las estrellas, más arriba y discretas */
+@media (max-width: 899px) {
+  .vc-sun {
+    width: 300px;
+    height: 300px;
+    margin-left: -150px;
+    bottom: calc(var(--tabbar-h) - 140px);
+  }
+
+  .vc-palm {
+    width: 90px;
+    height: 190px;
+    bottom: calc(var(--tabbar-h) - 20px);
+  }
+
+  .vc-palm--r {
+    height: 160px;
+  }
+
+  .vc-hud {
+    top: 6px;
+    right: 10px;
+  }
+
+  .vc-wanted {
+    font-size: 14px;
+  }
+}
+
+/* Sin movimiento para quien lo tiene desactivado: palmeras quietas, estrellas sin parpadeo, cartel sin zoom */
+@media (prefers-reduced-motion: reduce) {
+  .vc-palm,
+  .vc-wanted span.is-on {
+    animation: none;
+  }
+
+  .vc-mission {
+    animation-name: vc-mission-still;
+  }
+
+  @keyframes vc-mission-still {
+    0%,
+    85% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
+}

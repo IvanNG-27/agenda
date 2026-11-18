@@ -5,7 +5,8 @@ import { Editor } from './components/Editor';
 import { markReleasesSeen, pendingReleases, WhatsNew } from './components/WhatsNew';
 import { UpdateNotice } from './components/UpdateNotice';
 import { HalloweenDecor, useSeasonTheme } from './components/Halloween';
-import { useChristmas, useHalloween } from './lib/season';
+import { isLaunchWeek, useChristmas, useHalloween } from './lib/season';
+import { LaunchDecor } from './components/Launch';
 import { ChristmasDecor } from './components/Christmas';
 import { HoyView } from './views/HoyView';
 import { SemanaView } from './views/SemanaView';
@@ -27,7 +28,9 @@ export default function App() {
   const halloween = useHalloween(today) === 'on';
   // Navidad (1 dic – 8 ene): nieve, luces, trineo y cascanueces; el 9 de enero vuelve a ser la de siempre
   const christmas = useChristmas(today) === 'on';
-  useSeasonTheme(halloween ? 'halloween' : christmas ? 'navidad' : null);
+  // Semana del lanzamiento de GTA VI (19–26 nov 2026, solo ese año): sorpresa, sin aviso ni novedades
+  const launch = isLaunchWeek(today);
+  useSeasonTheme(halloween ? 'halloween' : christmas ? 'navidad' : launch ? 'gta' : null);
   const route = useRoute();
   const desktop = useMediaQuery('(min-width: 900px)');
   const [editor, setEditor] = useState<EditorRequest | null>(null);
@@ -119,6 +122,7 @@ export default function App() {
       <UpdateNotice />
       {halloween && <HalloweenDecor />}
       {christmas && <ChristmasDecor />}
+      {launch && <LaunchDecor tasks={all.tasks} today={today} />}
       {news.length > 0 && !editor && (
         <WhatsNew title="Nocta se ha actualizado" releases={news} onClose={closeNews} />
       )}

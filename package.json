@@ -86,6 +86,7 @@
     "npm": ">=11"
   },
   "dependencies": {
+    "@fontsource/anton": "^5.3.0",
     "@fontsource/mountains-of-christmas": "^5.3.0"
   }
 }

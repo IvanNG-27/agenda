@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import '@fontsource/creepster/latin-400.css'; // el archivo de la fuente solo se descarga si se usa
 import '../styles/halloween.css';
 
-const BAR_COLOR = { halloween: '#0c0710', navidad: '#06140f' } as const;
+const BAR_COLOR = { halloween: '#0c0710', navidad: '#06140f', gta: '#12071f' } as const;
 
 /** Pone o quita el tema de la temporada en <html> (y el color de la barra del navegador en el móvil). */
 export function useSeasonTheme(season: keyof typeof BAR_COLOR | null) {

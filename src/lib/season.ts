@@ -20,6 +20,15 @@ export function isChristmas(iso: string): boolean {
   return md >= '12-01' || md <= '01-08';
 }
 
+/**
+ * Semana del lanzamiento de GTA VI: solo del 19 al 26 de noviembre de 2026 (no se repite otros años).
+ * Es una sorpresa: no sale en las novedades ni en Ajustes.
+ */
+export function isLaunchWeek(iso: string): boolean {
+  if (forced) return forced === 'gta';
+  return iso >= '2026-11-19' && iso <= '2026-11-26';
+}
+
 /** Año en que empezó esta Navidad (en enero, el anterior): con él se recuerda si se ha quitado la decoración. */
 export const christmasYear = (iso: string) => String(Number(iso.slice(0, 4)) - (iso.slice(5, 7) === '01' ? 1 : 0));
 
