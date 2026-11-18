@@ -36,6 +36,7 @@ import {
   type UserCredential,
 } from 'firebase/auth';
 import {
+  addDoc,
   clearIndexedDbPersistence,
   collection,
   connectFirestoreEmulator,
@@ -44,12 +45,15 @@ import {
   doc,
   getDoc,
   getDocFromServer,
+  getDocs,
   getDocsFromServer,
   initializeFirestore,
   onSnapshot,
+  orderBy,
   persistentLocalCache,
   persistentMultipleTabManager,
   query,
+  serverTimestamp,
   setDoc,
   terminate,
   updateDoc,
@@ -59,6 +63,7 @@ import {
   type DocumentReference,
   type Firestore,
   type SnapshotMetadata,
+  type Timestamp,
 } from 'firebase/firestore';
 import { deleteToken, getMessaging, getToken, isSupported } from 'firebase/messaging';
 import {
@@ -80,7 +85,7 @@ import {
 } from '../data/store';
 import { upcomingReminders } from '../lib/reminders';
 import { cleanDays, cleanEvent, cleanExam, cleanNote, cleanSubject, cleanTask } from '../data/backup';
-import type { GroupMember, GroupRole, State } from '../data/types';
+import type { Activity, Author, Change, GroupMember, GroupRole, State } from '../data/types';
 import { isSubjectColor } from '../data/defaults';
 import { appCheckSiteKey, firebaseConfig, useEmulator, vapidKey } from './config';
 import { getSyncStatus, messageFor, setSyncStatus } from './index';
@@ -585,6 +590,74 @@ function forgetGroup(gid: string) {
 }
 
 /** Nombre con el que aparece ante los demás miembros: el de su cuenta de Google o el que puso en Ajustes. */
+/** Quién soy en un grupo: mi cuenta y el nombre con el que figuro entre sus miembros. */
+function meIn(gid?: string): Author | null {
+  if (!user || !gid) return null;
+  const uid = user.uid;
+  const name = getState().groups.find((g) => g.id === gid)?.members.find((m) => m.uid === uid)?.name;
+  return name ? { uid, name } : null;
+}
+
+// ---------- Historial y comentarios de lo que hay en un grupo ----------
+// groups/{gid}/{tasks|exams|notes}/{id}/activity/{aid} → { type: create|edit|comment, uid, name, at, changes?, text?, edited? }
+// Solo se lee mientras está abierta la tarea, el examen o la nota.
+
+export type ActivityKind = 'tasks' | 'exams' | 'notes';
+const activityCol = (gid: string, kind: ActivityKind, id: string) => collection(db, 'groups', gid, kind, id, 'activity');
+const millis = (v: unknown) => (v && typeof (v as Timestamp).toMillis === 'function' ? (v as Timestamp).toMillis() : 0);
+
+function cleanActivity(id: string, d: DocumentData): Activity | null {
+  if (!['create', 'edit', 'comment'].includes(d.type) || typeof d.uid !== 'string' || typeof d.name !== 'string') return null;
+  const changes: Change[] | undefined = Array.isArray(d.changes)
+    ? d.changes
+        .filter((c: unknown): c is Change => !!c && typeof (c as Change).f === 'string')
+        .slice(0, 10)
+        .map((c: Change) => ({ f: c.f.slice(0, 20), from: String(c.from ?? '').slice(0, 200), to: String(c.to ?? '').slice(0, 200) }))
+    : undefined;
+  return {
+    id,
+    type: d.type,
+    uid: d.uid,
+    name: d.name.slice(0, 60),
+    at: millis(d.at),
+    changes,
+    text: typeof d.text === 'string' ? d.text.slice(0, 1000) : undefined,
+    edited: millis(d.edited) || undefined,
+  };
+}
+
+/** Escucha el historial de algo de un grupo. Devuelve con qué dejar de escucharlo. */
+export function watchActivity(gid: string, kind: ActivityKind, id: string, cb: (list: Activity[], me: string | null) => void) {
+  return onSnapshot(
+    query(activityCol(gid, kind, id), orderBy('at')),
+    (snap) => cb(snap.docs.flatMap((d) => cleanActivity(d.id, d.data({ serverTimestamps: 'estimate' })) ?? []), user?.uid ?? null),
+    () => cb([], user?.uid ?? null),
+  );
+}
+
+export async function addComment(gid: string, kind: ActivityKind, id: string, text: string) {
+  const me = meIn(gid);
+  const t = text.trim().slice(0, 1000);
+  if (!me || !t) return;
+  await addDoc(activityCol(gid, kind, id), { type: 'comment', uid: me.uid, name: me.name, at: serverTimestamp(), text: t });
+}
+
+export async function editComment(gid: string, kind: ActivityKind, id: string, aid: string, text: string) {
+  const t = text.trim().slice(0, 1000);
+  if (!t) return;
+  await updateDoc(doc(activityCol(gid, kind, id), aid), { text: t, edited: serverTimestamp() });
+}
+
+export async function deleteComment(gid: string, kind: ActivityKind, id: string, aid: string) {
+  await deleteDoc(doc(activityCol(gid, kind, id), aid));
+}
+
+/** Al borrar algo de un grupo, se borra también su historial (las reglas lo dejan solo cuando ya no existe). */
+async function clearActivity(gid: string, kind: ActivityKind, id: string) {
+  const snap = await getDocs(activityCol(gid, kind, id));
+  await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)));
+}
+
 const myName = () => (auth.currentUser?.displayName || getState().userName || 'Sin nombre').slice(0, 60);
 
 const needUser = () => {
@@ -681,7 +754,13 @@ export async function deleteGroup(gid: string) {
   const ops: BatchOp[] = [];
   for (const key of LIST_KEYS) {
     const snap = await getDocsFromServer(collection(g, key));
-    snap.docs.forEach((d) => ops.push((b) => b.delete(d.ref)));
+    for (const d of snap.docs) {
+      if (key === 'tasks' || key === 'exams' || key === 'notes') {
+        const history = await getDocsFromServer(collection(d.ref, 'activity'));
+        history.docs.forEach((h) => ops.push((b) => b.delete(h.ref)));
+      }
+      ops.push((b) => b.delete(d.ref));
+    }
   }
   // Los miembros al final (las reglas de lo anterior comprueban que sigue siendo miembro), y quien administra el último
   const members = await getDocsFromServer(collection(g, 'members'));
@@ -824,14 +903,21 @@ function makeRemote(base: DocumentReference): Remote {
   return {
     // En el grupo, una tarea siempre va como pendiente: cada miembro guarda aparte si la ha terminado
     putTask: (t) => send(setDoc(ref('tasks', t), t.group ? { ...strip(t), done: false, doneAt: undefined } : strip(t))),
-    removeTask: (t) => send(deleteDoc(ref('tasks', t))),
+    removeTask: (t) => send(deleteDoc(ref('tasks', t)).then(() => (t.group ? clearActivity(t.group, 'tasks', t.id) : undefined))),
     // En el grupo, un examen va sin días estudiados: cada miembro guarda los suyos aparte
     putExam: (e) => send(setDoc(ref('exams', e), e.group ? { ...strip(e), studyDays: undefined } : strip(e))),
-    removeExam: (e) => send(deleteDoc(ref('exams', e))),
+    removeExam: (e) => send(deleteDoc(ref('exams', e)).then(() => (e.group ? clearActivity(e.group, 'exams', e.id) : undefined))),
     putEvent: (e) => send(setDoc(ref('events', e), strip(e))),
     removeEvent: (e) => send(deleteDoc(ref('events', e))),
     putNote: (n) => send(setDoc(ref('notes', n), strip(n))),
-    removeNote: (n) => send(deleteDoc(ref('notes', n))),
+    removeNote: (n) => send(deleteDoc(ref('notes', n)).then(() => (n.group ? clearActivity(n.group, 'notes', n.id) : undefined))),
+    me: (gid) => meIn(gid),
+    logActivity: (kind, item, entry) => {
+      const me = meIn(item.group);
+      if (!me || !item.group) return;
+      const changes = entry.type === 'edit' ? { changes: entry.changes } : {};
+      send(addDoc(activityCol(item.group, kind, item.id), { type: entry.type, uid: me.uid, name: me.name, at: serverTimestamp(), ...changes }));
+    },
     putSubject: (sub, order) => send(setDoc(ref('subjects', sub), { ...strip(sub), order })),
     removeSubject: (sub) => send(deleteDoc(ref('subjects', sub))),
     putProfile: (p) => send(setDoc(base, p, { merge: true })),

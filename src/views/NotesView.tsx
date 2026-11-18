@@ -8,6 +8,7 @@ import { PageHeader } from '../components/PageHeader';
 import { Swatches } from '../components/ColorPicker';
 import { colorCss, inkOn } from '../lib/rules';
 import { useModal } from '../ui';
+import { ItemActivity } from '../components/Activity';
 
 type Props = { state: State; desktop: boolean };
 
@@ -169,6 +170,7 @@ function NoteCard({ note, state, onOpen }: { note: Note; state: State; onOpen: (
       )}
       <p className="note-card__date">
         {group && <span className="note-card__group">{group.name} · </span>}
+        {note.by && <span className="note-card__by">{note.by.name} · </span>}
         {edited(note.updatedAt)}
       </p>
     </article>
@@ -398,6 +400,7 @@ function NoteEditor({ note, state, desktop, onClose }: { note?: Note; state: Sta
             )}
           </div>
         </form>
+        {note?.group && <ItemActivity kind="notes" item={note} group={group} />}
       </div>
     </div>
   );

@@ -25,7 +25,7 @@ export function TaskItem({ task, subject, today, raised, extra, draggable }: Pro
   const editable = canEdit(task);
   draggable = draggable && editable;
   const groupStyle = useGroupStyle(task.group);
-  const meta = [subject?.name, task.notes?.split('\n')[0], extra].filter(Boolean).join(' · ');
+  const meta = [subject?.name, task.by && `por ${task.by.name}`, task.notes?.split('\n')[0], extra].filter(Boolean).join(' · ');
 
   const onDragStart = (e: DragEvent) => {
     e.dataTransfer.setData('text/plain', task.id);

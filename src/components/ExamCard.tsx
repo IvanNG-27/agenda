@@ -62,6 +62,7 @@ export function ExamCard({
         {exam.group && (
           <span className="exam__group">
             <GroupTag id={exam.group} />
+            {exam.by && <span className="exam__by">por {exam.by.name}</span>}
           </span>
         )}
         {!horizontal && (

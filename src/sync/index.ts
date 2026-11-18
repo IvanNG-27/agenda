@@ -104,6 +104,30 @@ export const groups = {
   delete: (gid: string) => groupCall((m) => m.deleteGroup(gid)),
 };
 
+// ---------- Historial y comentarios (solo en lo de los grupos) ----------
+
+export type ActivityKind = 'tasks' | 'exams' | 'notes';
+
+export const activity = {
+  /** Escucha el historial de algo de un grupo; devuelve con qué dejar de escucharlo. */
+  watch(gid: string, kind: ActivityKind, id: string, cb: (list: import('../data/types').Activity[], me: string | null) => void) {
+    if (!available) return () => {};
+    let stop = () => {};
+    let cancelled = false;
+    void load().then((m) => {
+      if (!cancelled) stop = m.watchActivity(gid, kind, id, cb);
+    });
+    return () => {
+      cancelled = true;
+      stop();
+    };
+  },
+  comment: (gid: string, kind: ActivityKind, id: string, text: string) => groupCall((m) => m.addComment(gid, kind, id, text)),
+  edit: (gid: string, kind: ActivityKind, id: string, aid: string, text: string) =>
+    groupCall((m) => m.editComment(gid, kind, id, aid, text)),
+  remove: (gid: string, kind: ActivityKind, id: string, aid: string) => groupCall((m) => m.deleteComment(gid, kind, id, aid)),
+};
+
 /** Borra la cuenta y todos sus datos de la nube (derecho de supresión). */
 export async function deleteAccount() {
   if (!available) return;

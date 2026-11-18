@@ -1,6 +1,7 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { initialState } from './defaults';
-import type { AgendaEvent, Exam, Group, Note, State, Subject, Task } from './types';
+import type { AgendaEvent, Author, Change, Exam, Group, Note, State, Subject, Task } from './types';
+import { examChanges, noteChanges, taskChanges } from '../lib/activity';
 import { todayISO } from '../lib/dates';
 
 const KEY = 'nocta:v1';
@@ -105,6 +106,10 @@ export type Remote = {
   putGroupStudy(group: string, exam: string, days: string[]): void;
   /** Marca (true) o desmarca una asignatura de grupo como convalidada para esta persona */
   putGroupSkip(group: string, subject: string, on: boolean): void;
+  /** Quién soy en ese grupo (para firmar lo que creo y el historial) */
+  me(group: string): Author | null;
+  /** Apunta en el historial de algo de un grupo que se ha creado o cambiado */
+  logActivity(kind: 'tasks' | 'exams' | 'notes', item: { id: string; group?: string }, entry: { type: 'create' } | { type: 'edit'; changes: Change[] }): void;
   /** Solo lo personal: los grupos no se tocan al importar una copia */
   replaceAll(prev: State, next: State): void;
 };
@@ -213,9 +218,10 @@ const orderOf = (s: Subject, list: Subject[] = state.subjects) => list.filter((x
 export const actions = {
   addTask(t: Omit<Task, 'id' | 'done'>) {
     if (!canEdit(t)) return;
-    const task: Task = { ...t, id: uid(), done: false };
+    const task: Task = { ...t, id: uid(), done: false, by: t.group ? remote?.me(t.group) ?? undefined : undefined };
     set({ ...state, tasks: [...state.tasks, task] });
     remote?.putTask(task);
+    if (task.group) remote?.logActivity('tasks', task, { type: 'create' });
   },
   updateTask(id: string, patch: Partial<Task>) {
     const current = state.tasks.find((t) => t.id === id);
@@ -228,9 +234,13 @@ export const actions = {
       patch = rest;
     }
     if (!canEdit(current)) return;
-    set({ ...state, tasks: state.tasks.map((t) => (t.id === id ? { ...t, ...patch, group: t.group } : t)) });
+    set({ ...state, tasks: state.tasks.map((t) => (t.id === id ? { ...t, ...patch, group: t.group, by: t.by } : t)) });
     const task = state.tasks.find((t) => t.id === id);
     if (task) remote?.putTask(task);
+    if (task?.group && current) {
+      const changes = taskChanges(state, current, task);
+      if (changes.length) remote?.logActivity('tasks', task, { type: 'edit', changes });
+    }
   },
   setDone(id: string, done: boolean) {
     const t = state.tasks.find((x) => x.id === id);
@@ -258,15 +268,21 @@ export const actions = {
   },
   addExam(e: Omit<Exam, 'id'>) {
     if (!canEdit(e)) return;
-    const exam: Exam = { ...e, id: uid() };
+    const exam: Exam = { ...e, id: uid(), by: e.group ? remote?.me(e.group) ?? undefined : undefined };
     set({ ...state, exams: [...state.exams, exam] });
     remote?.putExam(exam);
+    if (exam.group) remote?.logActivity('exams', exam, { type: 'create' });
   },
   updateExam(id: string, patch: Partial<Exam>) {
-    if (!canEdit(state.exams.find((e) => e.id === id))) return;
-    set({ ...state, exams: state.exams.map((e) => (e.id === id ? { ...e, ...patch, group: e.group } : e)) });
+    const before = state.exams.find((e) => e.id === id);
+    if (!canEdit(before)) return;
+    set({ ...state, exams: state.exams.map((e) => (e.id === id ? { ...e, ...patch, group: e.group, by: e.by } : e)) });
     const exam = state.exams.find((e) => e.id === id);
     if (exam) remote?.putExam(exam);
+    if (exam?.group && before) {
+      const changes = examChanges(state, before, exam);
+      if (changes.length) remote?.logActivity('exams', exam, { type: 'edit', changes });
+    }
   },
   deleteExam(id: string) {
     const exam = state.exams.find((e) => e.id === id);
@@ -327,16 +343,22 @@ export const actions = {
   /** Crea una nota y devuelve su id. */
   addNote(n: Omit<Note, 'id' | 'updatedAt'>): string {
     if (!canEdit(n)) return '';
-    const note: Note = { ...n, id: uid(), updatedAt: Date.now() };
+    const note: Note = { ...n, id: uid(), updatedAt: Date.now(), by: n.group ? remote?.me(n.group) ?? undefined : undefined };
     set({ ...state, notes: [...state.notes, note] });
     remote?.putNote(note);
+    if (note.group) remote?.logActivity('notes', note, { type: 'create' });
     return note.id;
   },
   updateNote(id: string, patch: Partial<Omit<Note, 'id'>>) {
-    if (!canEdit(state.notes.find((n) => n.id === id))) return;
-    set({ ...state, notes: state.notes.map((n) => (n.id === id ? { ...n, ...patch, group: n.group, updatedAt: Date.now() } : n)) });
+    const before = state.notes.find((n) => n.id === id);
+    if (!canEdit(before)) return;
+    set({ ...state, notes: state.notes.map((n) => (n.id === id ? { ...n, ...patch, group: n.group, by: n.by, updatedAt: Date.now() } : n)) });
     const note = state.notes.find((n) => n.id === id);
     if (note) remote?.putNote(note);
+    if (note?.group && before) {
+      const changes = noteChanges(before, note);
+      if (changes.length) remote?.logActivity('notes', note, { type: 'edit', changes });
+    }
   },
   /** Marca o desmarca un punto de la lista de una nota. */
   toggleNoteItem(id: string, index: number) {

@@ -2489,3 +2489,219 @@ label.field .field__label {
   color: var(--ink-muted);
   text-decoration: line-through;
 }
+
+/* ---------- Grupos: historial y comentarios (1.10.0) ---------- */
+
+.btn--sm {
+  height: 34px;
+  padding: 0 var(--space-3);
+  font-size: 13px;
+}
+
+.act {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--line);
+}
+.act__title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin: 0;
+  font: var(--t-label);
+  font-size: 15px;
+  color: var(--ink);
+}
+.act__count {
+  font: var(--t-caption);
+  color: var(--ink-muted);
+}
+.act__by {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font: var(--t-caption);
+  font-size: 13px;
+  color: var(--ink-muted);
+}
+.act__by strong {
+  color: var(--ink);
+}
+.act__by--old,
+.act__empty {
+  margin: 0;
+  font: var(--t-caption);
+  color: var(--ink-muted);
+}
+.act-avatar {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  color: #14141a;
+  font: 700 10px/1 var(--font-sans);
+  letter-spacing: 0.02em;
+}
+
+/* Línea de tiempo: una raya vertical que une los cambios y los comentarios */
+.act__list {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.act__list::before {
+  content: '';
+  position: absolute;
+  left: 12px;
+  top: 4px;
+  bottom: 4px;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--line);
+}
+.act__list:empty {
+  display: none;
+}
+.act-event,
+.act-comment {
+  position: relative;
+  display: flex;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.act-event__dot {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--bg-200);
+  box-shadow: 0 0 0 3px var(--bg-100);
+  color: var(--ink-muted);
+  font-size: 12px;
+}
+.act-comment .act-avatar {
+  box-shadow: 0 0 0 3px var(--bg-100);
+}
+.act-event__body {
+  flex: 1;
+  min-width: 0;
+  padding-top: 3px;
+}
+.act-event__head,
+.act-comment__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--space-2);
+  margin: 0;
+  font: var(--t-caption);
+  font-size: 13px;
+  color: var(--ink-muted);
+}
+.act-event__head strong,
+.act-comment__head strong {
+  color: var(--ink);
+}
+.act-time,
+.act-edited {
+  font: var(--t-caption);
+  color: var(--ink-muted);
+}
+.act-changes {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+  font: var(--t-caption);
+  font-size: 13px;
+  color: var(--ink-muted);
+  overflow-wrap: anywhere;
+}
+/* Antes → después, como en un diff */
+.act-del {
+  padding: 0 4px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--exam) 16%, transparent);
+  color: var(--ink);
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--exam) 70%, transparent);
+}
+.act-ins {
+  padding: 0 4px;
+  border-radius: 4px;
+  background: color-mix(in srgb, #4ade80 16%, transparent);
+  color: var(--ink);
+}
+.act-swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  vertical-align: -1px;
+}
+.act-none {
+  font-style: italic;
+}
+.act-comment__box {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--bg-000);
+}
+.act-comment__text {
+  margin: 4px 0 0;
+  font: var(--t-body);
+  font-size: 14px;
+  color: var(--ink);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.act-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: 4px;
+}
+.act-actions .text-btn {
+  margin-left: 0;
+  padding: 2px 6px;
+  font-size: 12px;
+}
+.act-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
+}
+.act-compose {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.act-hint {
+  flex: 1;
+  font: var(--t-caption);
+  color: var(--ink-muted);
+}
+.exam__by {
+  margin-left: 6px;
+  font: 600 11px/18px var(--font-sans);
+  opacity: 0.8;
+}

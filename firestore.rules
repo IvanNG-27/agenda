@@ -56,8 +56,15 @@ service cloud.firestore {
     }
 
     // Nota libre (apartado Notas): título, texto, lista de hasta 50 puntos, color y fijada
+    // Autor de algo de un grupo: { uid, name }
+    function validBy(d) {
+      return !('by' in d) || (d.by is map && d.by.keys().hasOnly(['uid', 'name'])
+        && d.by.uid is string && d.by.uid.size() <= 128 && text(d.by.name, 60));
+    }
+
     function validNote(d, id) {
-      return d.keys().hasOnly(['id', 'title', 'text', 'items', 'color', 'pinned', 'updatedAt'])
+      return d.keys().hasOnly(['id', 'title', 'text', 'items', 'color', 'pinned', 'updatedAt', 'by'])
+        && validBy(d)
         && d.keys().hasAll(['id', 'updatedAt'])
         && d.id == id
         && optText(d, 'title', 120)
@@ -107,6 +114,26 @@ service cloud.firestore {
         && text(d.name, 60)
         && d.joinedAt is int
         && (!('code' in d) || d.code is string);
+    }
+
+    // Al crear algo en un grupo, si lleva autor tiene que ser quien lo crea, con su nombre de miembro
+    function byIsMe(gid, d) {
+      return !('by' in d) || (d.by.uid == request.auth.uid && d.by.name == get(memberPath(gid)).data.name);
+    }
+
+    // Al cambiarlo, el autor no cambia (una versión anterior de la app puede no traerlo: entonces se queda sin él)
+    function byKept() {
+      return !('by' in request.resource.data) || ('by' in resource.data && request.resource.data.by == resource.data.by);
+    }
+
+    // Entrada del historial: creación, modificación (con lo que cambió) o comentario
+    function validActivity(d) {
+      return d.keys().hasOnly(['type', 'uid', 'name', 'at', 'changes', 'text'])
+        && d.type in ['create', 'edit', 'comment']
+        && d.uid is string && text(d.name, 60) && d.at is timestamp
+        && (d.type != 'comment' || (text(d.text, 1000) && !('changes' in d)))
+        && (d.type != 'edit' || (d.changes is list && d.changes.size() > 0 && d.changes.size() <= 10 && !('text' in d)))
+        && (d.type != 'create' || (!('changes' in d) && !('text' in d)));
     }
 
     // Código de invitación: existe, es de este grupo y no ha caducado
@@ -173,7 +200,8 @@ service cloud.firestore {
     }
 
     function validTask(d, id) {
-      return d.keys().hasOnly(['id', 'title', 'subjectId', 'dueDate', 'done', 'doneAt', 'notes', 'reminders'])
+      return d.keys().hasOnly(['id', 'title', 'subjectId', 'dueDate', 'done', 'doneAt', 'notes', 'reminders', 'by'])
+        && validBy(d)
         && d.keys().hasAll(['id', 'title', 'subjectId', 'dueDate', 'done'])
         && d.id == id
         && text(d.title, 120)
@@ -186,7 +214,8 @@ service cloud.firestore {
     }
 
     function validExam(d, id) {
-      return d.keys().hasOnly(['id', 'title', 'subjectId', 'date', 'time', 'prep', 'studyDays', 'reminders'])
+      return d.keys().hasOnly(['id', 'title', 'subjectId', 'date', 'time', 'prep', 'studyDays', 'reminders', 'by'])
+        && validBy(d)
         && d.keys().hasAll(['id', 'title', 'subjectId', 'date', 'prep'])
         && d.id == id
         && text(d.title, 120)
@@ -293,12 +322,14 @@ service cloud.firestore {
       match /tasks/{id} {
         allow read: if isMember(gid);
         allow delete: if canWrite(gid);
-        allow create, update: if canWrite(gid) && validTask(request.resource.data, id);
+        allow create: if canWrite(gid) && validTask(request.resource.data, id) && byIsMe(gid, request.resource.data);
+        allow update: if canWrite(gid) && validTask(request.resource.data, id) && byKept();
       }
       match /exams/{id} {
         allow read: if isMember(gid);
         allow delete: if canWrite(gid);
-        allow create, update: if canWrite(gid) && validExam(request.resource.data, id);
+        allow create: if canWrite(gid) && validExam(request.resource.data, id) && byIsMe(gid, request.resource.data);
+        allow update: if canWrite(gid) && validExam(request.resource.data, id) && byKept();
       }
       match /events/{id} {
         allow read: if isMember(gid);
@@ -308,7 +339,34 @@ service cloud.firestore {
       match /notes/{id} {
         allow read: if isMember(gid);
         allow delete: if canWrite(gid);
-        allow create, update: if canWrite(gid) && validNote(request.resource.data, id);
+        allow create: if canWrite(gid) && validNote(request.resource.data, id) && byIsMe(gid, request.resource.data);
+        allow update: if canWrite(gid) && validNote(request.resource.data, id) && byKept();
+      }
+
+      // Historial y comentarios de cada tarea, examen o nota del grupo.
+      // Leer: los miembros. Comentar: cualquier miembro. Apuntar creaciones y cambios: quien puede editar.
+      // Siempre firmado por quien lo escribe, con su nombre de miembro y la hora del servidor.
+      match /{list}/{itemId}/activity/{aid} {
+        allow read: if list in ['tasks', 'exams', 'notes'] && isMember(gid);
+        allow create: if list in ['tasks', 'exams', 'notes'] && isMember(gid)
+          && validActivity(request.resource.data)
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.name == get(memberPath(gid)).data.name
+          && request.resource.data.at == request.time
+          && (request.resource.data.type == 'comment' || canWrite(gid))
+          && exists(/databases/$(database)/documents/groups/$(gid)/$(list)/$(itemId));
+        // Solo se editan comentarios, y solo su texto, por quien los escribió
+        allow update: if list in ['tasks', 'exams', 'notes'] && isMember(gid)
+          && resource.data.type == 'comment' && resource.data.uid == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'edited'])
+          && text(request.resource.data.text, 1000)
+          && request.resource.data.edited == request.time;
+        // Borrar: un comentario, quien lo escribió; cualquiera, quien administra;
+        // y todo el historial, quien puede editar, una vez borrado lo que lo tenía
+        allow delete: if list in ['tasks', 'exams', 'notes'] && (
+          isGroupOwner(gid)
+          || (isMember(gid) && resource.data.type == 'comment' && resource.data.uid == request.auth.uid)
+          || (canWrite(gid) && !exists(/databases/$(database)/documents/groups/$(gid)/$(list)/$(itemId))));
       }
     }
 

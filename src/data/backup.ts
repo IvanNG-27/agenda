@@ -1,5 +1,5 @@
 // Copias de seguridad: exportar el estado a un .json e importarlo validando cada campo.
-import type { AgendaEvent, Exam, Note, NoteItem, State, Subject, Task } from './types';
+import type { AgendaEvent, Exam, Note, NoteItem, State, Subject, Task, Author } from './types';
 import { initialState, isSubjectColor } from './defaults';
 import { personalOnly } from './store';
 import { todayISO } from '../lib/dates';
@@ -35,6 +35,14 @@ export function downloadBackup(state: State) {
 
 const str = (v: unknown, max: number): string | undefined =>
   typeof v === 'string' && v.trim() !== '' ? v.slice(0, max) : undefined;
+
+/** Autor de algo de un grupo: { uid, name } o nada. */
+export const cleanBy = (v: unknown): Author | undefined => {
+  const o = v as { uid?: unknown; name?: unknown } | null;
+  return o && typeof o === 'object' && typeof o.uid === 'string' && o.uid.length <= 128 && typeof o.name === 'string' && o.name.trim()
+    ? { uid: o.uid, name: o.name.slice(0, 60) }
+    : undefined;
+};
 
 const arr = (v: unknown): Record<string, unknown>[] =>
   Array.isArray(v) ? v.filter((x): x is Record<string, unknown> => !!x && typeof x === 'object') : [];
@@ -98,7 +106,7 @@ export function cleanTask(t: Record<string, unknown>): Task | null {
   if (!id || !title || !subjectId || !dueDate) return null;
   const done = t.done === true;
   const doneAt = done && typeof t.doneAt === 'string' && ISO.test(t.doneAt) ? t.doneAt : undefined;
-  return { id, title, subjectId, dueDate, done, doneAt, notes: str(t.notes, 2000), reminders: cleanReminders(t.reminders, false) };
+  return { id, title, subjectId, dueDate, done, doneAt, notes: str(t.notes, 2000), reminders: cleanReminders(t.reminders, false), by: cleanBy(t.by) };
 }
 
 export function cleanExam(e: Record<string, unknown>): Exam | null {
@@ -113,6 +121,7 @@ export function cleanExam(e: Record<string, unknown>): Exam | null {
     id, title, subjectId, date, time: str(e.time, 30), prep,
     studyDays: studyDays.length ? studyDays : undefined,
     reminders: cleanReminders(e.reminders, false),
+    by: cleanBy(e.by),
   };
 }
 
@@ -154,5 +163,5 @@ export function cleanNote(n: Record<string, unknown>): Note | null {
   if (!title && !text && !items.length) return null; // una nota vacía no se guarda
   const color = typeof n.color === 'string' && isSubjectColor(n.color.toLowerCase()) ? n.color.toLowerCase() : undefined;
   const updatedAt = typeof n.updatedAt === 'number' && Number.isFinite(n.updatedAt) ? n.updatedAt : 0;
-  return { id, title, text, items: items.length ? items : undefined, color, pinned: n.pinned === true || undefined, updatedAt };
+  return { id, title, text, items: items.length ? items : undefined, color, pinned: n.pinned === true || undefined, updatedAt, by: cleanBy(n.by) };
 }

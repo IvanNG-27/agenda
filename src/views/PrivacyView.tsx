@@ -63,6 +63,12 @@ export function PrivacyView({ desktop }: { desktop: boolean }) {
             y no cuenta para su racha.
           </li>
           <li>
+            <strong>Historial y comentarios:</strong> en las tareas, exámenes y notas del grupo queda apuntado quién las
+            creó, qué ha cambiado cada uno (antes y después) y los comentarios, con el nombre de quien los escribió. Lo ven
+            todos los miembros. Tus comentarios los puedes editar o borrar; quien administra puede borrar cualquiera. Al
+            borrar algo (o el grupo), se borra también su historial.
+          </li>
+          <li>
             <strong>Convalidadas:</strong> si marcas una asignatura del grupo como convalidada, se guarda en tu cuenta y
             solo deja de salirte a ti. Los demás miembros no lo ven.
           </li>

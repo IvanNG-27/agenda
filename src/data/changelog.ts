@@ -8,6 +8,14 @@ export type Release = { version: string; changes: string[] };
 
 export const CHANGELOG: Release[] = [
   {
+    version: '1.10.0',
+    changes: [
+      '🕓 En los grupos, cada tarea, examen y nota dice quién la creó y guarda su historial: quién cambió qué y cuándo (antes → después).',
+      '💬 Y ahora tienen comentarios: ábrelas y escribe abajo. Todo el grupo puede comentar, también quien solo puede leer.',
+      'Puedes editar o borrar tus comentarios; quien administra el grupo puede borrar cualquiera.',
+    ],
+  },
+  {
     version: '1.9.0',
     changes: [
       '🎄 Cada año, del 1 de diciembre al 8 de enero, Nocta se viste de Navidad: nieve, luces de colores y el trineo de Papá Noel con sus renos cruzando el cielo. El 9 de enero vuelve a ser la de siempre.',

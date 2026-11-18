@@ -7,6 +7,25 @@ export type Subject = {
   group?: string;
 };
 
+/** Quien crea algo en un grupo o escribe en su historial (uid de la cuenta y nombre en el grupo). */
+export type Author = { uid: string; name: string };
+
+/** Un cambio de un campo en el historial: valores ya escritos para leerlos (fechas, nombre de asignatura…). */
+export type Change = { f: string; from: string; to: string };
+
+/** Entrada del historial de algo de un grupo: creación, modificación o comentario. */
+export type Activity = {
+  id: string;
+  type: 'create' | 'edit' | 'comment';
+  uid: string;
+  name: string;
+  at: number; // ms
+  changes?: Change[];
+  text?: string;
+  /** Cuándo se editó el comentario por última vez */
+  edited?: number;
+};
+
 export type Task = {
   id: string;
   title: string;
@@ -19,6 +38,8 @@ export type Task = {
   group?: string;
   /** Recordatorios: minutos respecto al inicio (la hora, o las 00:00 si es de todo el día). Ver lib/reminders.ts */
   reminders?: number[];
+  /** En los grupos: quién lo creó (se guarda en la nube y no se puede cambiar) */
+  by?: Author;
 };
 
 export type Exam = {
@@ -34,6 +55,8 @@ export type Exam = {
   group?: string;
   /** Recordatorios: minutos respecto al inicio (la hora, o las 00:00 si es de todo el día). Ver lib/reminders.ts */
   reminders?: number[];
+  /** En los grupos: quién lo creó (se guarda en la nube y no se puede cambiar) */
+  by?: Author;
 };
 
 export type EventKind = 'cumple' | 'comida' | 'quedada' | 'medico' | 'importante' | 'otro';
@@ -116,4 +139,6 @@ export type Note = {
   updatedAt: number; // ms
   /** Solo en el dispositivo: id del grupo en el que vive (no se guarda en la nube). Sin él, es personal. */
   group?: string;
+  /** En los grupos: quién lo creó (se guarda en la nube y no se puede cambiar) */
+  by?: Author;
 };

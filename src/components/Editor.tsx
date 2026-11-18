@@ -8,6 +8,7 @@ import { cleanReminders, MAX_REMINDERS, optionsFor } from '../lib/reminders';
 import { useNotify } from '../notify';
 import { useModal, type EditorRequest } from '../ui';
 import { SubjectChip } from './SubjectChip';
+import { ItemActivity } from './Activity';
 import { Icon } from './Icons';
 
 type Props = {
@@ -384,6 +385,7 @@ export function Editor({ req, state, today, desktop, onClose }: Props) {
             )}
           </div>
         </form>
+        {(task || exam) && existing?.group && <ItemActivity kind={task ? 'tasks' : 'exams'} item={(task ?? exam)!} group={group} />}
       </div>
     </div>
   );
